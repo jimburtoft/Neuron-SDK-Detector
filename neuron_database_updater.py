@@ -81,14 +81,28 @@ class NeuronDocumentationScraper:
         
         return complete_data
     
+    def _extract_release_date(self, content: str, version: str) -> str:
+        """Extract release date for a specific version from content."""
+        # Try to find version-specific date information
+        # Format: "Neuron 2.25.0 (01/16/2025)" or similar
+        date_pattern = rf'Neuron {re.escape(version)} \(([^)]+)\)'
+        match = re.search(date_pattern, content)
+        if match:
+            return match.group(1)
+        return "TBD"  # Default if date not found
+    
     def _extract_current_version_data(self, content: str) -> Dict[str, Any]:
         """Extract package data for current release (2.25.0)."""
-        # This would contain the logic to parse the current release format
-        # For now, return the known 2.25.0 data
+        # Extract release date from content
+        release_date = self._extract_release_date(content, "2.25.0")
+        
+        # For now, return the known 2.25.0 data with new structure
         return {
             "2.25.0": {
-                "Inf1": {
-                    "aws-neuronx-collectives": "2.27.34.0",
+                "release_date": release_date,
+                "platforms": {
+                    "Inf1": {
+                        "aws-neuronx-collectives": "2.27.34.0",
                     "aws-neuronx-dkms": "2.23.9.0",
                     "aws-neuronx-k8-plugin": "2.27.7.0",
                     "aws-neuronx-k8-scheduler": "2.27.7.0",
@@ -166,6 +180,7 @@ class NeuronDocumentationScraper:
                     "neuronx_distributed_inference": "0.5.9230",
                     "neuronx_distributed_training": "1.5.0",
                     "torch-neuronx": "2.7.0.2.9.9357"
+                    }
                 }
             }
         }
@@ -210,8 +225,9 @@ class NeuronDocumentationScraper:
         current_section = []
         
         for line in lines:
-            # Check if this is a version header
-            version_match = re.match(r'Neuron (\d+\.\d+\.\d+) \(', line)
+            # Check if this is a version header - also extract date
+            # Format: "Neuron 2.24.0 (01/16/2025)"
+            version_match = re.match(r'Neuron (\d+\.\d+\.\d+) \(([^)]+)\)', line)
             if version_match:
                 # Save previous section if exists
                 if current_version and current_section:
@@ -230,10 +246,20 @@ class NeuronDocumentationScraper:
         print(f"Found sections for {len(sections)} versions")
         return sections
     
-    def _parse_version_section(self, section_content: str, version: str) -> Dict[str, Dict[str, str]]:
-        """Parse a single version section to extract packages by platform."""
+    def _parse_version_section(self, section_content: str, version: str) -> Dict[str, Any]:
+        """Parse a single version section to extract packages by platform and release date."""
         
         platforms = {"Trn1": {}, "Trn2": {}, "Inf2": {}, "Inf1": {}}
+        release_date = None
+        
+        # Extract release date from the first line
+        lines = section_content.split('\n')
+        if lines:
+            first_line = lines[0]
+            # Format: "Neuron 2.24.0 (01/16/2025)"
+            date_match = re.match(r'Neuron (\d+\.\d+\.\d+) \(([^)]+)\)', first_line)
+            if date_match:
+                release_date = date_match.group(2)
         
         # Find platform sections within this version
         lines = section_content.split('\n')
@@ -281,7 +307,15 @@ class NeuronDocumentationScraper:
                     package_name, package_version = package_info
                     platforms[current_platform][package_name] = package_version
         
-        return platforms
+        # Return structured data with platforms and release date
+        result = {
+            "platforms": platforms
+        }
+        
+        if release_date:
+            result["release_date"] = release_date
+            
+        return result
     
     def _extract_package_from_line(self, line: str) -> tuple:
         """Extract package name and version from a line."""

@@ -26,7 +26,9 @@ class PackageDetector:
     # Known Neuron-related package prefixes
     NEURON_SYSTEM_PREFIXES = [
         'aws-neuron',
+        'aws-neuronx',
         'aws_neuron',
+        'aws_neuronx',
         'neuron',
     ]
     
@@ -69,7 +71,9 @@ class PackageDetector:
                     package_info = self._parse_dpkg_line(line)
                     if package_info:
                         name, version = package_info
-                        packages[name] = version
+                        # Clean system package versions too (remove build suffixes)
+                        clean_version = self._clean_version(version)
+                        packages[name] = clean_version
                         
         except (subprocess.CalledProcessError, FileNotFoundError):
             # Try rpm if dpkg is not available (Amazon Linux/RHEL)
@@ -86,7 +90,9 @@ class PackageDetector:
                         package_info = self._parse_rpm_line(line)
                         if package_info:
                             name, version = package_info
-                            packages[name] = version
+                            # Clean system package versions too (remove build suffixes)
+                            clean_version = self._clean_version(version)
+                            packages[name] = clean_version
                             
             except (subprocess.CalledProcessError, FileNotFoundError):
                 print("Warning: Neither dpkg nor rpm found, skipping system package detection")

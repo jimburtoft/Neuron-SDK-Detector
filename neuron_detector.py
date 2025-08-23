@@ -385,6 +385,7 @@ class VersionDatabase:
         """Analyze a single virtual environment's packages."""
         detected_sdks = {}
         unknown_packages = {}
+        package_to_highest_sdk = {}  # Track which SDK each package maps to
         
         for package_name, package_version in packages.items():
             key = f"{package_name}@{package_version}"
@@ -397,6 +398,7 @@ class VersionDatabase:
                 if newest_sdk not in detected_sdks:
                     detected_sdks[newest_sdk] = {}
                 detected_sdks[newest_sdk][package_name] = package_version
+                package_to_highest_sdk[package_name] = newest_sdk
             else:
                 # Package not found in any SDK - add to unknown
                 unknown_packages[package_name] = package_version
@@ -405,6 +407,7 @@ class VersionDatabase:
             'venv_path': venv_path,
             'detected_sdks': detected_sdks,
             'unknown_packages': unknown_packages,
+            'package_to_highest_sdk': package_to_highest_sdk,
             'total_packages': len(packages)
         }
     
@@ -582,10 +585,10 @@ def print_venv_summary(venv_analyses):
                 sdk_version = list(venv_analysis['detected_sdks'].keys())[0]
                 print(f"  {venv_name}: Neuron SDK {sdk_version}")
             else:
-                # Multiple SDKs in one venv - show most recent
-                latest_sdk = max(venv_analysis['detected_sdks'].keys(), 
-                                key=lambda x: [int(i) for i in x.split('.')])
-                print(f"  {venv_name}: Neuron SDK {latest_sdk} (mixed)")
+                # Multiple SDKs in one venv - show all components with their highest SDK
+                print(f"  {venv_name}: Mixed installation:")
+                for pkg_name, highest_sdk in sorted(venv_analysis['package_to_highest_sdk'].items()):
+                    print(f"    {pkg_name} ({highest_sdk})")
         
         elif venv_analysis['unknown_packages']:
             # Show deviant packages

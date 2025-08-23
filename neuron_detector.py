@@ -26,21 +26,29 @@ class PackageDetector:
     # Known Neuron-related package prefixes
     NEURON_SYSTEM_PREFIXES = [
         'aws-neuron',
+        'aws_neuron',
         'neuron',
     ]
     
     NEURON_PYTHON_PREFIXES = [
         'aws-neuron',
+        'aws_neuron', 
         'neuron',
         'torch-neuron',
+        'torch_neuron',
         'tensorflow-neuron',
+        'tensorflow_neuron',
         'jax-neuron', 
         'jax_neuron',
         'transformers-neuron',
+        'transformers_neuron',
         'mx-neuron',
+        'mx_neuron',
         'mxnet-neuron',
+        'mxnet_neuron',
         'libneuron',
         'tensorboard-plugin-neuron',
+        'tensorboard_plugin_neuron',
     ]
     
     def get_system_packages(self) -> Dict[str, str]:
@@ -300,6 +308,7 @@ Examples:
   %(prog)s --verbose                 # Show all detected package versions
   %(prog)s --check-venvs             # Also scan virtual environments in /opt
   %(prog)s --data-file custom.json   # Use custom version database file
+  %(prog)s --debug                   # Show debug information during detection
         """
     )
     
@@ -320,6 +329,12 @@ Examples:
         type=str,
         help='Path to version database file (downloads if not found)'
     )
+    
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Show debug information during detection'
+    )
 
     args = parser.parse_args()
 
@@ -335,16 +350,38 @@ Examples:
         # Detect installed packages
         detector = PackageDetector()
         
+        # Show debug info if requested
+        if args.debug:
+            print("=== Debug Mode ===")
+            print(f"Python prefixes: {detector.NEURON_PYTHON_PREFIXES}")
+            print(f"System prefixes: {detector.NEURON_SYSTEM_PREFIXES}")
+            print()
+        
         # Scan system packages
         system_packages = detector.get_system_packages()
+        if args.debug:
+            print(f"System packages found: {len(system_packages)}")
+            for name, ver in system_packages.items():
+                print(f"  {name}: {ver}")
+            print()
         
         # Scan current Python environment
         current_python_packages = detector.get_python_packages()
+        if args.debug:
+            print(f"Python packages found: {len(current_python_packages)}")
+            for name, ver in current_python_packages.items():
+                print(f"  {name}: {ver}")
+            print()
         
         # Scan virtual environments if requested
         venv_packages = {}
         if args.check_venvs:
             venv_packages = detector.get_venv_packages('/opt')
+            if args.debug:
+                print(f"Virtual environment packages: {len(venv_packages)}")
+                for venv, pkgs in venv_packages.items():
+                    print(f"  {venv}: {len(pkgs)} packages")
+                print()
         
         # Analyze versions
         analysis = db.analyze_installed_packages(

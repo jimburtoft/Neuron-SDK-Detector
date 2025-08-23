@@ -54,21 +54,21 @@ class PackageDetector:
     ]
     
     def get_system_packages(self) -> Dict[str, str]:
-        """Get installed system packages via dpkg (Ubuntu/Debian) or rpm (Amazon Linux/RHEL)."""
+        """Get installed system packages via apt/dpkg (Ubuntu/Debian) or rpm (Amazon Linux/RHEL)."""
         packages = {}
         
-        # Try dpkg first (Ubuntu/Debian)
+        # Try apt list first (Ubuntu/Debian) - more reliable than dpkg
         try:
             result = subprocess.run(
-                ['dpkg', '-l'],
+                ['apt', 'list', '--installed'],
                 capture_output=True,
                 text=True,
                 check=True
             )
             
             for line in result.stdout.splitlines():
-                if self._is_neuron_package_line_dpkg(line):
-                    package_info = self._parse_dpkg_line(line)
+                if self._is_neuron_package_line_apt(line):
+                    package_info = self._parse_apt_line(line)
                     if package_info:
                         name, version = package_info
                         # Clean system package versions too (remove build suffixes)
@@ -76,18 +76,18 @@ class PackageDetector:
                         packages[name] = clean_version
                         
         except (subprocess.CalledProcessError, FileNotFoundError):
-            # Try rpm if dpkg is not available (Amazon Linux/RHEL)
+            # Fallback to dpkg if apt is not available
             try:
                 result = subprocess.run(
-                    ['rpm', '-qa', '--queryformat', '%{NAME}\t%{VERSION}-%{RELEASE}\n'],
+                    ['dpkg', '-l'],
                     capture_output=True,
                     text=True,
                     check=True
                 )
                 
                 for line in result.stdout.splitlines():
-                    if self._is_neuron_package_line_rpm(line):
-                        package_info = self._parse_rpm_line(line)
+                    if self._is_neuron_package_line_dpkg(line):
+                        package_info = self._parse_dpkg_line(line)
                         if package_info:
                             name, version = package_info
                             # Clean system package versions too (remove build suffixes)
@@ -95,7 +95,26 @@ class PackageDetector:
                             packages[name] = clean_version
                             
             except (subprocess.CalledProcessError, FileNotFoundError):
-                print("Warning: Neither dpkg nor rpm found, skipping system package detection")
+                # Try rpm if dpkg is not available (Amazon Linux/RHEL)
+                try:
+                    result = subprocess.run(
+                        ['rpm', '-qa', '--queryformat', '%{NAME}\t%{VERSION}-%{RELEASE}\n'],
+                        capture_output=True,
+                        text=True,
+                        check=True
+                    )
+                    
+                    for line in result.stdout.splitlines():
+                        if self._is_neuron_package_line_rpm(line):
+                            package_info = self._parse_rpm_line(line)
+                            if package_info:
+                                name, version = package_info
+                                # Clean system package versions too (remove build suffixes)
+                                clean_version = self._clean_version(version)
+                                packages[name] = clean_version
+                                
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    print("Warning: No package manager found (apt/dpkg/rpm), skipping system package detection")
         
         return packages
     
@@ -158,6 +177,14 @@ class PackageDetector:
         
         return venv_packages
     
+    def _is_neuron_package_line_apt(self, line: str) -> bool:
+        """Check if an apt list line contains a Neuron package."""
+        # apt list format: package_name/repo,version architecture [status]
+        if '/' in line:
+            package_name = line.split('/')[0]
+            return any(package_name.startswith(prefix) for prefix in self.NEURON_SYSTEM_PREFIXES)
+        return False
+    
     def _is_neuron_package_line_dpkg(self, line: str) -> bool:
         """Check if a dpkg line contains a Neuron package."""
         # dpkg -l format: status name version architecture description
@@ -197,6 +224,23 @@ class PackageDetector:
                 name = parts[0].strip()
                 version = parts[1].strip()
                 return name, version
+        return None
+    
+    def _parse_apt_line(self, line: str) -> Optional[tuple]:
+        """Parse an apt list line to extract package name and version."""
+        # apt list format: package_name/repo,version architecture [status]
+        if '/' in line and ',' in line:
+            parts = line.split('/')
+            if len(parts) >= 2:
+                name = parts[0].strip()
+                
+                # Extract version from "repo,version architecture [status]"
+                repo_version_part = parts[1]
+                if ',' in repo_version_part:
+                    version_part = repo_version_part.split(',', 1)[1]  # Get everything after first comma
+                    # Version is before the first space (before architecture)
+                    version = version_part.split()[0]
+                    return name, version
         return None
     
     def _is_neuron_python_package(self, package_name: str) -> bool:

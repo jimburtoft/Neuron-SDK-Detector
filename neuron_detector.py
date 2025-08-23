@@ -379,6 +379,31 @@ class VersionDatabase:
             'all_packages': all_packages
         }
     
+    def analyze_venv_individually(self, venv_path: str, packages: Dict[str, str]) -> Dict[str, Any]:
+        """Analyze a single virtual environment's packages."""
+        detected_sdks = {}
+        unknown_packages = {}
+        
+        for package_name, package_version in packages.items():
+            key = f"{package_name}@{package_version}"
+            
+            if key in self.package_to_sdk_map:
+                # Package version matches known SDK(s)
+                for sdk_version in self.package_to_sdk_map[key]:
+                    if sdk_version not in detected_sdks:
+                        detected_sdks[sdk_version] = {}
+                    detected_sdks[sdk_version][package_name] = package_version
+            else:
+                # Package not found in any SDK - add to unknown
+                unknown_packages[package_name] = package_version
+        
+        return {
+            'venv_path': venv_path,
+            'detected_sdks': detected_sdks,
+            'unknown_packages': unknown_packages,
+            'total_packages': len(packages)
+        }
+    
     def _is_newer_version(self, version1: str, version2: str) -> bool:
         """Compare two version strings."""
         try:
@@ -482,6 +507,7 @@ Examples:
         
         # Scan virtual environments if requested
         venv_packages = {}
+        venv_analyses = []
         if args.check_venvs:
             venv_packages = detector.get_venv_packages('/opt')
             if args.debug:
@@ -489,17 +515,26 @@ Examples:
                 for venv, pkgs in venv_packages.items():
                     print(f"  {venv}: {len(pkgs)} packages")
                 print()
+            
+            # Analyze each venv individually
+            for venv_path, packages in venv_packages.items():
+                if packages:  # Only analyze if venv has neuron packages
+                    venv_analysis = db.analyze_venv_individually(venv_path, packages)
+                    venv_analyses.append(venv_analysis)
         
-        # Analyze versions
+        # Analyze versions (system + current Python only for overall analysis)
         analysis = db.analyze_installed_packages(
             system_packages,
             current_python_packages,
-            venv_packages
+            {} if args.check_venvs else venv_packages  # Don't double-count if doing individual analysis
         )
         
         # Output results
         if args.verbose:
-            print_verbose_output(analysis, system_packages, current_python_packages, venv_packages)
+            print_verbose_output(analysis, system_packages, current_python_packages, venv_packages, venv_analyses)
+        elif args.check_venvs:
+            print_simple_output(analysis)
+            print_venv_summary(venv_analyses)
         else:
             print_simple_output(analysis)
             
@@ -529,7 +564,35 @@ def print_simple_output(analysis):
         print(f"Neuron SDK version {latest_sdk} (mixed installation detected)")
 
 
-def print_verbose_output(analysis, system_packages, current_python_packages, venv_packages):
+def print_venv_summary(venv_analyses):
+    """Print summary of virtual environment analysis."""
+    if not venv_analyses:
+        return
+        
+    print("\n=== Virtual Environment Analysis ===")
+    for venv_analysis in venv_analyses:
+        venv_name = venv_analysis['venv_path'].split('/')[-1]  # Get just the venv name
+        
+        if venv_analysis['detected_sdks']:
+            if len(venv_analysis['detected_sdks']) == 1:
+                sdk_version = list(venv_analysis['detected_sdks'].keys())[0]
+                print(f"  {venv_name}: Neuron SDK {sdk_version}")
+            else:
+                # Multiple SDKs in one venv - show most recent
+                latest_sdk = max(venv_analysis['detected_sdks'].keys(), 
+                                key=lambda x: [int(i) for i in x.split('.')])
+                print(f"  {venv_name}: Neuron SDK {latest_sdk} (mixed)")
+        
+        elif venv_analysis['unknown_packages']:
+            # Show deviant packages
+            unknown_list = [f"{name}:{ver}" for name, ver in venv_analysis['unknown_packages'].items()]
+            print(f"  {venv_name}: Unknown versions - {', '.join(unknown_list)}")
+        
+        else:
+            print(f"  {venv_name}: No Neuron packages detected")
+
+
+def print_verbose_output(analysis, system_packages, current_python_packages, venv_packages, venv_analyses=None):
     """Print detailed package version information."""
     print("=== AWS Neuron SDK Version Analysis ===\n")
     
@@ -556,14 +619,37 @@ def print_verbose_output(analysis, system_packages, current_python_packages, ven
             print(f"  {package_name}: {version} {status}")
         print()
     
-    # Show virtual environment packages
-    for venv_path, packages in venv_packages.items():
-        if packages:
-            print(f"Python Packages ({venv_path}):")
-            for package_name, version in packages.items():
-                status = get_package_status(package_name, version, analysis)
-                print(f"  {package_name}: {version} {status}")
-            print()
+    # Show virtual environment analysis
+    if venv_analyses:
+        print("=== Virtual Environment Analysis ===")
+        for venv_analysis in venv_analyses:
+            venv_name = venv_analysis['venv_path'].split('/')[-1]
+            print(f"\n{venv_name}:")
+            
+            if venv_analysis['detected_sdks']:
+                print(f"  SDK Versions:")
+                for sdk_version, packages in venv_analysis['detected_sdks'].items():
+                    print(f"    {sdk_version}: {len(packages)} packages")
+                    for pkg_name, pkg_version in packages.items():
+                        print(f"      {pkg_name}: {pkg_version}")
+            
+            if venv_analysis['unknown_packages']:
+                print(f"  ⚠️ Unknown Versions:")
+                for pkg_name, pkg_version in venv_analysis['unknown_packages'].items():
+                    print(f"    {pkg_name}: {pkg_version}")
+            
+            if not venv_analysis['detected_sdks'] and not venv_analysis['unknown_packages']:
+                print(f"  No Neuron packages detected")
+        print()
+    else:
+        # Fallback to old format if no individual analyses
+        for venv_path, packages in venv_packages.items():
+            if packages:
+                print(f"Python Packages ({venv_path}):")
+                for package_name, version in packages.items():
+                    status = get_package_status(package_name, version, analysis)
+                    print(f"  {package_name}: {version} {status}")
+                print()
     
     # Show unknown packages
     if analysis['unknown_packages']:

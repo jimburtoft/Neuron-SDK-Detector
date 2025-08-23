@@ -364,11 +364,13 @@ class VersionDatabase:
             key = f"{package_name}@{package_version}"
             
             if key in self.package_to_sdk_map:
-                # Package version matches known SDK(s)
-                for sdk_version in self.package_to_sdk_map[key]:
-                    if sdk_version not in detected_sdks:
-                        detected_sdks[sdk_version] = {}
-                    detected_sdks[sdk_version][package_name] = package_version
+                # Package version matches known SDK(s) - pick the newest one
+                matching_sdks = self.package_to_sdk_map[key]
+                newest_sdk = max(matching_sdks, key=lambda x: [int(i) for i in x.split('.')])
+                
+                if newest_sdk not in detected_sdks:
+                    detected_sdks[newest_sdk] = {}
+                detected_sdks[newest_sdk][package_name] = package_version
             else:
                 # Package not found in any SDK - add to unknown
                 unknown_packages[package_name] = package_version
@@ -388,11 +390,13 @@ class VersionDatabase:
             key = f"{package_name}@{package_version}"
             
             if key in self.package_to_sdk_map:
-                # Package version matches known SDK(s)
-                for sdk_version in self.package_to_sdk_map[key]:
-                    if sdk_version not in detected_sdks:
-                        detected_sdks[sdk_version] = {}
-                    detected_sdks[sdk_version][package_name] = package_version
+                # Package version matches known SDK(s) - pick the newest one
+                matching_sdks = self.package_to_sdk_map[key]
+                newest_sdk = max(matching_sdks, key=lambda x: [int(i) for i in x.split('.')])
+                
+                if newest_sdk not in detected_sdks:
+                    detected_sdks[newest_sdk] = {}
+                detected_sdks[newest_sdk][package_name] = package_version
             else:
                 # Package not found in any SDK - add to unknown
                 unknown_packages[package_name] = package_version

@@ -97,7 +97,9 @@ class PackageDetector:
                 if '==' in line:
                     name, version = line.split('==', 1)
                     if self._is_neuron_python_package(name):
-                        packages[name] = version
+                        # Strip build suffixes (like +f46ac1ef) for database matching
+                        clean_version = self._clean_version(version)
+                        packages[name] = clean_version
                         
         except subprocess.CalledProcessError as e:
             print(f"Warning: Could not query Python packages: {e}")
@@ -163,6 +165,22 @@ class PackageDetector:
         package_name_lower = package_name.lower()
         return any(package_name_lower.startswith(prefix.lower()) 
                   for prefix in self.NEURON_PYTHON_PREFIXES)
+    
+    def _clean_version(self, version: str) -> str:
+        """Clean version string by removing build suffixes."""
+        # Remove common build suffixes like +abc123, +f46ac1ef, etc.
+        if '+' in version:
+            version = version.split('+')[0]
+        # Remove other possible suffixes
+        if '-' in version and not version.count('-') > 2:  # Keep semantic versions like 2.1.0-beta
+            # Only strip if it looks like a build suffix (has letters/numbers after -)
+            parts = version.split('-')
+            if len(parts) > 1 and any(c.isalnum() for c in parts[-1]):
+                # Check if last part looks like a commit hash or build ID
+                last_part = parts[-1]
+                if len(last_part) >= 6 and any(c.isdigit() for c in last_part):
+                    version = '-'.join(parts[:-1])
+        return version
 
 
 class VersionDatabase:

@@ -228,19 +228,26 @@ class PackageDetector:
     
     def _parse_apt_line(self, line: str) -> Optional[tuple]:
         """Parse an apt list line to extract package name and version."""
-        # apt list format: package_name/repo,version architecture [status]
+        # apt list format: package_name/repo,status version architecture [status]
+        # Example: aws-neuronx-collectives/unknown,now 2.27.34.0-ec8cd5e8b amd64 [installed]
         if '/' in line and ',' in line:
             parts = line.split('/')
             if len(parts) >= 2:
                 name = parts[0].strip()
                 
-                # Extract version from "repo,version architecture [status]"
-                repo_version_part = parts[1]
-                if ',' in repo_version_part:
-                    version_part = repo_version_part.split(',', 1)[1]  # Get everything after first comma
-                    # Version is before the first space (before architecture)
-                    version = version_part.split()[0]
-                    return name, version
+                # Extract version from "repo,status version architecture [status]"
+                repo_status_version_part = parts[1]
+                if ',' in repo_status_version_part:
+                    # Split on comma and get everything after it: "status version architecture [status]"
+                    status_version_part = repo_status_version_part.split(',', 1)[1].strip()
+                    # Split on space and get the part that looks like a version (contains dots or numbers)
+                    parts_after_comma = status_version_part.split()
+                    
+                    # Find the version part (usually the second element, after status like "now")
+                    for part in parts_after_comma:
+                        # Version typically contains dots and numbers
+                        if '.' in part and any(c.isdigit() for c in part):
+                            return name, part
         return None
     
     def _is_neuron_python_package(self, package_name: str) -> bool:
@@ -363,9 +370,8 @@ class VersionDatabase:
                         detected_sdks[sdk_version] = {}
                     detected_sdks[sdk_version][package_name] = package_version
             else:
-                # Check if package name is known but version doesn't match
-                if self._is_known_package_name(package_name):
-                    unknown_packages[package_name] = package_version
+                # Package not found in any SDK - add to unknown
+                unknown_packages[package_name] = package_version
         
         return {
             'detected_sdks': detected_sdks,

@@ -52,11 +52,11 @@ class PackageDetector:
     ]
     
     def get_system_packages(self) -> Dict[str, str]:
-        """Get installed system packages via dpkg."""
+        """Get installed system packages via dpkg (Ubuntu/Debian) or rpm (Amazon Linux/RHEL)."""
         packages = {}
         
+        # Try dpkg first (Ubuntu/Debian)
         try:
-            # Run dpkg to get installed packages
             result = subprocess.run(
                 ['dpkg', '-l'],
                 capture_output=True,
@@ -65,16 +65,31 @@ class PackageDetector:
             )
             
             for line in result.stdout.splitlines():
-                if self._is_neuron_package_line(line):
+                if self._is_neuron_package_line_dpkg(line):
                     package_info = self._parse_dpkg_line(line)
                     if package_info:
                         name, version = package_info
                         packages[name] = version
                         
-        except subprocess.CalledProcessError as e:
-            print(f"Warning: Could not query system packages: {e}")
-        except FileNotFoundError:
-            print("Warning: dpkg not found, skipping system package detection")
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Try rpm if dpkg is not available (Amazon Linux/RHEL)
+            try:
+                result = subprocess.run(
+                    ['rpm', '-qa', '--queryformat', '%{NAME}\t%{VERSION}-%{RELEASE}\n'],
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                
+                for line in result.stdout.splitlines():
+                    if self._is_neuron_package_line_rpm(line):
+                        package_info = self._parse_rpm_line(line)
+                        if package_info:
+                            name, version = package_info
+                            packages[name] = version
+                            
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                print("Warning: Neither dpkg nor rpm found, skipping system package detection")
         
         return packages
     
@@ -137,12 +152,20 @@ class PackageDetector:
         
         return venv_packages
     
-    def _is_neuron_package_line(self, line: str) -> bool:
+    def _is_neuron_package_line_dpkg(self, line: str) -> bool:
         """Check if a dpkg line contains a Neuron package."""
         # dpkg -l format: status name version architecture description
         parts = line.split()
         if len(parts) >= 2:
             package_name = parts[1]
+            return any(package_name.startswith(prefix) for prefix in self.NEURON_SYSTEM_PREFIXES)
+        return False
+    
+    def _is_neuron_package_line_rpm(self, line: str) -> bool:
+        """Check if an rpm line contains a Neuron package."""
+        # rpm format: package_name\tversion-release
+        if '\t' in line:
+            package_name = line.split('\t')[0]
             return any(package_name.startswith(prefix) for prefix in self.NEURON_SYSTEM_PREFIXES)
         return False
     
@@ -158,6 +181,16 @@ class PackageDetector:
             if status.startswith('ii'):
                 return name, version
         
+        return None
+    
+    def _parse_rpm_line(self, line: str) -> Optional[tuple]:
+        """Parse an rpm line to extract package name and version."""
+        if '\t' in line:
+            parts = line.split('\t')
+            if len(parts) >= 2:
+                name = parts[0].strip()
+                version = parts[1].strip()
+                return name, version
         return None
     
     def _is_neuron_python_package(self, package_name: str) -> bool:

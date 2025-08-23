@@ -331,7 +331,15 @@ class VersionDatabase:
         """Build reverse mapping from package name+version to SDK versions."""
         self.package_to_sdk_map = {}
         
-        for sdk_version, platforms in self.sdk_data.items():
+        for sdk_version, sdk_data in self.sdk_data.items():
+            # Handle both old and new JSON structure
+            if isinstance(sdk_data, dict) and 'platforms' in sdk_data:
+                # New structure with release dates
+                platforms = sdk_data['platforms']
+            else:
+                # Old structure without release dates
+                platforms = sdk_data
+                
             for platform, packages in platforms.items():
                 for package_name, package_version in packages.items():
                     key = f"{package_name}@{package_version}"
@@ -587,8 +595,15 @@ def print_venv_summary(venv_analyses):
             else:
                 # Multiple SDKs in one venv - show all components with their highest SDK
                 print(f"  {venv_name}: Mixed installation:")
+                # Get package versions from the detected_sdks
                 for pkg_name, highest_sdk in sorted(venv_analysis['package_to_highest_sdk'].items()):
-                    print(f"    {pkg_name} ({highest_sdk})")
+                    # Find the actual package version
+                    pkg_version = None
+                    for sdk_ver, packages in venv_analysis['detected_sdks'].items():
+                        if pkg_name in packages:
+                            pkg_version = packages[pkg_name]
+                            break
+                    print(f"    {pkg_name}: {pkg_version} ({highest_sdk})")
         
         elif venv_analysis['unknown_packages']:
             # Show deviant packages

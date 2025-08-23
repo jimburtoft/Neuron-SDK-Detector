@@ -20,30 +20,23 @@ Preferred communication style: Simple, everyday language.
 
 ## Core Components
 
-The application follows a modular architecture with clear separation of concerns:
+The application follows a two-script architecture with clear separation of functionality:
 
-**Main Controller (`neuron_version_detector.py`)**
-- Command-line interface and argument parsing
-- Orchestrates the detection and analysis workflow
-- Handles output formatting (simple vs verbose modes)
+**Standalone Detection Script (`neuron_detector.py`)**
+- Single-file architecture containing all detection functionality
+- Integrated package detection for system and Python environments  
+- Built-in version database management with GitHub download capability
+- Command-line interface with simple and verbose output modes
+- Downloads `neuron_versions.json` from GitHub if not found locally
+- Caches database locally for future use
 
-**Package Detection (`package_detector.py`)**
-- Scans system packages using dpkg commands
-- Detects Python packages in current and virtual environments
-- Supports multi-environment scanning in `/opt` directory
-- Uses predefined package prefixes to identify Neuron-related components
-
-**Version Database Management (`version_database.py`)**
-- Manages local JSON database of SDK versions and package mappings
-- Downloads database from GitHub when local copy is unavailable
-- Builds reverse lookup maps for efficient package-to-SDK version matching
-- Handles database updates and caching
-
-**Web Scraping (`scraper.py`)**
+**Database Updater Script (`neuron_database_updater.py`)**
+- Dedicated scraping and database maintenance functionality
 - Scrapes AWS Neuron documentation for package version information
-- Extracts data from current and previous release pages
+- Extracts data from current and historical release pages
 - Uses trafilatura for content extraction and requests for HTTP handling
-- Maintains session state with appropriate user-agent headers
+- Builds comprehensive JSON database with all SDK versions
+- Independent operation - can update database without affecting detection
 
 ## Data Flow Architecture
 

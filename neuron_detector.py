@@ -683,7 +683,7 @@ def print_version_output(analysis, venv_analyses=None):
 
 
 def find_closest_versions(package_name, unknown_version):
-    """Find closest known versions above and below an unknown version."""
+    """Find closest known versions above and below an unknown version with SDK info."""
     global _version_database
     if not _version_database:
         return None, None
@@ -695,8 +695,8 @@ def find_closest_versions(package_name, unknown_version):
         package_name.replace('_', '-')
     ]
     
-    # Collect all known versions for this package
-    known_versions = []
+    # Collect all known versions for this package with their SDK versions
+    version_to_sdk = {}
     for sdk_version, sdk_data in _version_database.sdk_data.items():
         if isinstance(sdk_data, dict) and 'platforms' in sdk_data:
             platforms = sdk_data['platforms']
@@ -707,15 +707,16 @@ def find_closest_versions(package_name, unknown_version):
             # Check all normalized package name variants
             for norm_name in normalized_names:
                 if norm_name in packages:
-                    known_versions.append(packages[norm_name])
+                    pkg_version = packages[norm_name]
+                    if pkg_version not in version_to_sdk:
+                        version_to_sdk[pkg_version] = sdk_version
     
-    if not known_versions:
+    if not version_to_sdk:
         return None, None
     
-    # Remove duplicates and sort by version
-    unique_versions = list(set(known_versions))
+    # Sort versions using proper version comparison
+    unique_versions = list(version_to_sdk.keys())
     try:
-        # Sort versions using proper version comparison
         def version_key(v):
             # Split version into numeric components for proper sorting
             parts = []
@@ -730,7 +731,9 @@ def find_closest_versions(package_name, unknown_version):
         
         # Find closest versions
         below_version = None
+        below_sdk = None
         above_version = None
+        above_sdk = None
         
         # Convert unknown_version for comparison
         unknown_key = version_key(unknown_version)
@@ -739,11 +742,17 @@ def find_closest_versions(package_name, unknown_version):
             version_key_val = version_key(version)
             if version_key_val < unknown_key:
                 below_version = version
+                below_sdk = version_to_sdk[version]
             elif version_key_val > unknown_key and above_version is None:
                 above_version = version
+                above_sdk = version_to_sdk[version]
                 break
-                
-        return below_version, above_version
+        
+        # Return tuples of (version, sdk) or None
+        below_info = (below_version, below_sdk) if below_version else None
+        above_info = (above_version, above_sdk) if above_version else None
+        
+        return below_info, above_info
     except:
         # If version parsing fails, return None
         return None, None
@@ -774,14 +783,14 @@ def print_simple_output(analysis, venv_analyses=None):
         if has_unknown_versions:
             print("\n⚠️  Unknown package versions:")
             for pkg_name, pkg_version in sorted(all_unknown.items()):
-                below, above = find_closest_versions(pkg_name, pkg_version)
+                below_info, above_info = find_closest_versions(pkg_name, pkg_version)
                 closest_info = ""
-                if below or above:
+                if below_info or above_info:
                     closest_parts = []
-                    if below:
-                        closest_parts.append(f"↓{below}")
-                    if above:
-                        closest_parts.append(f"↑{above}")
+                    if below_info:
+                        closest_parts.append(f"↓{below_info[0]} (SDK {below_info[1]})")
+                    if above_info:
+                        closest_parts.append(f"↑{above_info[0]} (SDK {above_info[1]})")
                     closest_info = f" [closest: {', '.join(closest_parts)}]"
                 print(f"  ❌ {pkg_name}: {pkg_version}{closest_info}")
     elif not has_mixed_installation:
@@ -820,14 +829,14 @@ def print_simple_output(analysis, venv_analyses=None):
         if all_unknown:
             print("  Unknown versions:")
             for pkg_name, pkg_version in sorted(all_unknown.items()):
-                below, above = find_closest_versions(pkg_name, pkg_version)
+                below_info, above_info = find_closest_versions(pkg_name, pkg_version)
                 closest_info = ""
-                if below or above:
+                if below_info or above_info:
                     closest_parts = []
-                    if below:
-                        closest_parts.append(f"↓{below}")
-                    if above:
-                        closest_parts.append(f"↑{above}")
+                    if below_info:
+                        closest_parts.append(f"↓{below_info[0]} (SDK {below_info[1]})")
+                    if above_info:
+                        closest_parts.append(f"↑{above_info[0]} (SDK {above_info[1]})")
                     closest_info = f" [closest: {', '.join(closest_parts)}]"
                 print(f"    ❌ {pkg_name}: {pkg_version}{closest_info}")
 
@@ -870,14 +879,14 @@ def print_venv_summary(venv_analyses):
                 if has_unknown_in_venv:
                     print(f"    Unknown versions:")
                     for pkg_name, pkg_version in sorted(venv_analysis['unknown_packages'].items()):
-                        below, above = find_closest_versions(pkg_name, pkg_version)
+                        below_info, above_info = find_closest_versions(pkg_name, pkg_version)
                         closest_info = ""
-                        if below or above:
+                        if below_info or above_info:
                             closest_parts = []
-                            if below:
-                                closest_parts.append(f"↓{below}")
-                            if above:
-                                closest_parts.append(f"↑{above}")
+                            if below_info:
+                                closest_parts.append(f"↓{below_info[0]} (SDK {below_info[1]})")
+                            if above_info:
+                                closest_parts.append(f"↑{above_info[0]} (SDK {above_info[1]})")
                             closest_info = f" [closest: {', '.join(closest_parts)}]"
                         print(f"      ❌ {pkg_name}: {pkg_version}{closest_info}")
         
@@ -885,14 +894,14 @@ def print_venv_summary(venv_analyses):
             # Show deviant packages with closest versions
             print(f"  {venv_name}: Unknown versions:")
             for pkg_name, pkg_version in sorted(venv_analysis['unknown_packages'].items()):
-                below, above = find_closest_versions(pkg_name, pkg_version)
+                below_info, above_info = find_closest_versions(pkg_name, pkg_version)
                 closest_info = ""
-                if below or above:
+                if below_info or above_info:
                     closest_parts = []
-                    if below:
-                        closest_parts.append(f"↓{below}")
-                    if above:
-                        closest_parts.append(f"↑{above}")
+                    if below_info:
+                        closest_parts.append(f"↓{below_info[0]} (SDK {below_info[1]})")
+                    if above_info:
+                        closest_parts.append(f"↑{above_info[0]} (SDK {above_info[1]})")
                     closest_info = f" [closest: {', '.join(closest_parts)}]"
                 print(f"    ❌ {pkg_name}: {pkg_version}{closest_info}")
         
@@ -944,14 +953,14 @@ def print_verbose_output(analysis, system_packages, current_python_packages, ven
             if venv_analysis['unknown_packages']:
                 print(f"  ⚠️ Unknown Versions:")
                 for pkg_name, pkg_version in venv_analysis['unknown_packages'].items():
-                    below, above = find_closest_versions(pkg_name, pkg_version)
+                    below_info, above_info = find_closest_versions(pkg_name, pkg_version)
                     closest_info = ""
-                    if below or above:
+                    if below_info or above_info:
                         closest_parts = []
-                        if below:
-                            closest_parts.append(f"↓{below}")
-                        if above:
-                            closest_parts.append(f"↑{above}")
+                        if below_info:
+                            closest_parts.append(f"↓{below_info[0]} (SDK {below_info[1]})")
+                        if above_info:
+                            closest_parts.append(f"↑{above_info[0]} (SDK {above_info[1]})")
                         closest_info = f" [closest: {', '.join(closest_parts)}]"
                     print(f"    ❌ {pkg_name}: {pkg_version}{closest_info}")
             

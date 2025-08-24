@@ -457,6 +457,10 @@ Examples:
   %(prog)s                           # Simple output: Neuron SDK version X.XX.X
   %(prog)s --verbose                 # Show all detected package versions
   %(prog)s --check-venvs             # Also scan virtual environments in /opt
+  %(prog)s --check-venvs pytorch     # Scan only pytorch virtual environment
+  %(prog)s --version                 # Script-friendly version output (2.25.0)
+  %(prog)s --info                    # Show latest SDK info and update instructions
+  %(prog)s --info --verbose          # Show all known SDK versions
   %(prog)s --data-file custom.json   # Use custom version database file
   %(prog)s --debug                   # Show debug information during detection
         """
@@ -470,8 +474,10 @@ Examples:
     
     parser.add_argument(
         '--check-venvs',
-        action='store_true',
-        help='Scan virtual environments in /opt directory'
+        nargs='?',
+        const='all',
+        metavar='VENV_NAME',
+        help='Scan virtual environments in /opt directory (optionally specify single venv name)'
     )
     
     parser.add_argument(
@@ -484,6 +490,18 @@ Examples:
         '--debug',
         action='store_true',
         help='Show debug information during detection'
+    )
+    
+    parser.add_argument(
+        '--version',
+        action='store_true',
+        help='Output only the SDK version number for scripting (fails on mixed/no packages)'
+    )
+    
+    parser.add_argument(
+        '--info',
+        action='store_true',
+        help='Display latest SDK info and update instructions'
     )
 
     args = parser.parse_args()
@@ -530,6 +548,18 @@ Examples:
         venv_analyses = []
         if args.check_venvs:
             venv_packages = detector.get_venv_packages('/opt')
+            
+            # Filter to specific venv if specified
+            if args.check_venvs != 'all':
+                target_venv = args.check_venvs
+                # Find matching venv (allow partial matches)
+                matching_venvs = {path: packages for path, packages in venv_packages.items() 
+                                if target_venv in path.split('/')[-1]}
+                if not matching_venvs:
+                    print(f"Error: Virtual environment '{target_venv}' not found")
+                    return 1
+                venv_packages = matching_venvs
+            
             if args.debug:
                 print(f"Virtual environment packages: {len(venv_packages)}")
                 for venv, pkgs in venv_packages.items():
@@ -548,6 +578,14 @@ Examples:
             current_python_packages,
             {} if args.check_venvs else venv_packages  # Don't double-count if doing individual analysis
         )
+        
+        # Handle special flags first
+        if args.info:
+            print_info_output(args.verbose)
+            return 0
+        
+        if args.version:
+            return print_version_output(analysis, venv_analyses)
         
         # Output results
         if args.verbose:
@@ -580,6 +618,114 @@ def get_sdk_release_date(sdk_version):
     return "date unknown"
 
 
+def print_info_output(verbose=False):
+    """Print SDK info and update instructions."""
+    global _version_database
+    if not _version_database:
+        print("Error: Database not loaded")
+        return
+    
+    # Find latest SDK version
+    all_versions = list(_version_database.sdk_data.keys())
+    if not all_versions:
+        print("Error: No SDK versions found in database")
+        return
+    
+    latest_version = max(all_versions, key=lambda x: [int(i) for i in x.split('.')])
+    latest_date = get_sdk_release_date(latest_version)
+    
+    print(f"AWS Neuron SDK Information")
+    print(f"========================")
+    print(f"Latest SDK Version: {latest_version} ({latest_date})")
+    print(f"Database contains: {len(all_versions)} SDK versions")
+    print()
+    print("To update the version database:")
+    print("  python3 neuron_database_updater.py")
+    print()
+    print("To update to latest SDK, refer to AWS Neuron documentation:")
+    print("  https://awsdocs-neuron.readthedocs-hosted.com/en/latest/")
+    
+    if verbose:
+        print(f"\nAll known SDK versions (newest to oldest):")
+        sorted_versions = sorted(all_versions, key=lambda x: [int(i) for i in x.split('.')], reverse=True)
+        for version in sorted_versions:
+            date = get_sdk_release_date(version)
+            print(f"  {version} ({date})")
+
+
+def print_version_output(analysis, venv_analyses=None):
+    """Print only SDK version for scripting (fails on mixed/no packages)."""
+    # Collect all unknown versions
+    all_unknown = {}
+    if 'unknown_packages' in analysis:
+        all_unknown.update(analysis['unknown_packages'])
+    
+    if venv_analyses:
+        for venv_analysis in venv_analyses:
+            if 'unknown_packages' in venv_analysis:
+                all_unknown.update(venv_analysis['unknown_packages'])
+    
+    # Check for clean single SDK installation
+    has_unknown_versions = bool(all_unknown)
+    has_multiple_sdks = len(analysis['detected_sdks']) > 1
+    
+    if not analysis['detected_sdks']:
+        print("Error: No Neuron packages detected", file=sys.stderr)
+        return 1
+    elif has_unknown_versions or has_multiple_sdks:
+        print("Error: Mixed installation detected", file=sys.stderr)
+        return 1
+    else:
+        # Clean single SDK installation
+        sdk_version = list(analysis['detected_sdks'].keys())[0]
+        print(sdk_version)
+        return 0
+
+
+def find_closest_versions(package_name, unknown_version):
+    """Find closest known versions above and below an unknown version."""
+    global _version_database
+    if not _version_database:
+        return None, None
+    
+    # Collect all known versions for this package
+    known_versions = []
+    for sdk_version, sdk_data in _version_database.sdk_data.items():
+        if isinstance(sdk_data, dict) and 'platforms' in sdk_data:
+            platforms = sdk_data['platforms']
+        else:
+            platforms = sdk_data
+            
+        for platform, packages in platforms.items():
+            if package_name in packages:
+                known_versions.append(packages[package_name])
+    
+    if not known_versions:
+        return None, None
+    
+    # Remove duplicates and sort by version
+    unique_versions = list(set(known_versions))
+    try:
+        # Sort versions (simple string comparison, may not be perfect for all cases)
+        unique_versions.sort(key=lambda x: [int(i) if i.isdigit() else i for i in x.replace('.', ' ').split()])
+        
+        # Find closest versions
+        below_version = None
+        above_version = None
+        
+        for version in unique_versions:
+            if version < unknown_version:
+                below_version = version
+            elif version > unknown_version and above_version is None:
+                above_version = version
+                break
+                
+        return below_version, above_version
+    except:
+        # If version parsing fails, return None
+        return None, None
+
+
 def print_simple_output(analysis, venv_analyses=None):
     """Print simple SDK version output."""
     # Collect all unknown versions from main analysis and virtual environments
@@ -605,7 +751,16 @@ def print_simple_output(analysis, venv_analyses=None):
         if has_unknown_versions:
             print("\n⚠️  Unknown package versions:")
             for pkg_name, pkg_version in sorted(all_unknown.items()):
-                print(f"  ❌ {pkg_name}: {pkg_version}")
+                below, above = find_closest_versions(pkg_name, pkg_version)
+                closest_info = ""
+                if below or above:
+                    closest_parts = []
+                    if below:
+                        closest_parts.append(f"↓{below}")
+                    if above:
+                        closest_parts.append(f"↑{above}")
+                    closest_info = f" [closest: {', '.join(closest_parts)}]"
+                print(f"  ❌ {pkg_name}: {pkg_version}{closest_info}")
     elif not has_mixed_installation:
         # Clean single SDK installation - show version with date
         sdk_version = list(analysis['detected_sdks'].keys())[0]
@@ -642,7 +797,16 @@ def print_simple_output(analysis, venv_analyses=None):
         if all_unknown:
             print("  Unknown versions:")
             for pkg_name, pkg_version in sorted(all_unknown.items()):
-                print(f"    ❌ {pkg_name}: {pkg_version}")
+                below, above = find_closest_versions(pkg_name, pkg_version)
+                closest_info = ""
+                if below or above:
+                    closest_parts = []
+                    if below:
+                        closest_parts.append(f"↓{below}")
+                    if above:
+                        closest_parts.append(f"↑{above}")
+                    closest_info = f" [closest: {', '.join(closest_parts)}]"
+                print(f"    ❌ {pkg_name}: {pkg_version}{closest_info}")
 
 
 def print_venv_summary(venv_analyses):
@@ -683,7 +847,16 @@ def print_venv_summary(venv_analyses):
                 if has_unknown_in_venv:
                     print(f"    Unknown versions:")
                     for pkg_name, pkg_version in sorted(venv_analysis['unknown_packages'].items()):
-                        print(f"      ❌ {pkg_name}: {pkg_version}")
+                        below, above = find_closest_versions(pkg_name, pkg_version)
+                        closest_info = ""
+                        if below or above:
+                            closest_parts = []
+                            if below:
+                                closest_parts.append(f"↓{below}")
+                            if above:
+                                closest_parts.append(f"↑{above}")
+                            closest_info = f" [closest: {', '.join(closest_parts)}]"
+                        print(f"      ❌ {pkg_name}: {pkg_version}{closest_info}")
         
         elif venv_analysis['unknown_packages']:
             # Show deviant packages

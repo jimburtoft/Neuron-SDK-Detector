@@ -2,13 +2,17 @@
 
 ✅ **COMPLETED**: AWS Neuron SDK Version Detection Tool is a fully functional Python CLI application that identifies and analyzes AWS Neuron SDK installations across different environments. The tool successfully:
 
-- 🔍 **Detects System Packages**: Uses dpkg to find installed AWS Neuron system packages
+- 🔍 **Detects System Packages**: Uses apt/dpkg/rpm to find installed AWS Neuron system packages
 - 🐍 **Scans Python Environments**: Identifies Neuron packages in current and virtual environments
-- 📊 **Compares Package Versions**: Matches detected packages against comprehensive SDK database
+- 📊 **Compares Package Versions**: Matches detected packages against comprehensive SDK database with 37+ versions
 - ⚠️ **Identifies Mixed Installations**: Detects when packages from multiple SDK versions are present
-- ❌ **Highlights Unknown Versions**: Emphasizes package versions not found in any known SDK
-- 📁 **Multi-Environment Support**: Scans virtual environments in `/opt` directory
-- 🤖 **Simple & Verbose Modes**: Provides both quick version check and detailed package analysis
+- ❌ **Highlights Unknown Versions**: Emphasizes package versions not found in any known SDK with closest version suggestions
+- 📁 **Multi-Environment Support**: Scans virtual environments in `/opt` directory with selective targeting
+- 🤖 **Multiple Output Modes**: Simple, verbose, script-friendly, and information modes
+- 📅 **Release Date Tracking**: Shows SDK release dates for temporal context
+- 🎯 **Visual Indicators**: Emphasis characters for out-of-date and unknown packages
+- 🔧 **Script Integration**: Machine-readable output for automation and CI/CD pipelines
+- 📈 **Database Management**: Auto-updating version database with GitHub integration
 
 The tool addresses the complexity of AWS Neuron SDK's multi-package architecture where different components may have different version numbers within the same SDK release.
 
@@ -55,10 +59,31 @@ The application follows a two-script architecture with clear separation of funct
 ## Command-Line Interface Design
 
 Simple default behavior with progressive disclosure through optional flags:
-- Default: Simple version output
-- `--verbose`: Detailed package information
-- `--check-venvs`: Extended environment scanning
-- `--update-db`: Database maintenance operations
+- **Default**: Simple version output with release dates
+- **`--verbose`**: Detailed package information and SDK breakdowns
+- **`--check-venvs [VENV_NAME]`**: Extended environment scanning with optional single environment targeting
+- **`--version`**: Script-friendly version output (exits with error on mixed installations)
+- **`--info [--verbose]`**: Latest SDK information and update instructions, optionally with full version history
+- **`--debug`**: Comprehensive package detection troubleshooting
+- **`--data-file PATH`**: Custom version database file location
+
+## Latest Features (Added)
+
+### Enhanced Output Features
+- **Closest Version Detection**: Unknown packages show nearest known versions above and below
+- **Visual Emphasis**: ⚠️ for out-of-date packages, ❌ for unknown packages
+- **Release Date Integration**: All SDK versions display with their release dates
+- **Individual Environment Logic**: Each virtual environment assessed independently for mixed installations
+
+### Script Integration Features
+- **Version Flag**: Machine-readable SDK version output for automation
+- **Error Handling**: Proper exit codes for script integration (0=success, 1=error/mixed)
+- **Selective Environment Scanning**: Target specific virtual environments by name
+
+### Information and Maintenance
+- **Info Mode**: Display latest SDK version, database stats, and update instructions
+- **Comprehensive Version History**: Chronological listing of all known SDK versions with dates
+- **Database Auto-Download**: Automatic retrieval from GitHub with local caching
 
 # External Dependencies
 

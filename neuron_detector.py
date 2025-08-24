@@ -911,7 +911,16 @@ def print_verbose_output(analysis, system_packages, current_python_packages, ven
             if venv_analysis['unknown_packages']:
                 print(f"  ⚠️ Unknown Versions:")
                 for pkg_name, pkg_version in venv_analysis['unknown_packages'].items():
-                    print(f"    {pkg_name}: {pkg_version}")
+                    below, above = find_closest_versions(pkg_name, pkg_version)
+                    closest_info = ""
+                    if below or above:
+                        closest_parts = []
+                        if below:
+                            closest_parts.append(f"↓{below}")
+                        if above:
+                            closest_parts.append(f"↑{above}")
+                        closest_info = f" [closest: {', '.join(closest_parts)}]"
+                    print(f"    ❌ {pkg_name}: {pkg_version}{closest_info}")
             
             if not venv_analysis['detected_sdks'] and not venv_analysis['unknown_packages']:
                 print(f"  No Neuron packages detected")

@@ -30,11 +30,11 @@ The detector script is completely standalone and automatically downloads the ver
 ### Single File Installation
 ```bash
 # Download just the detector script - this is all you need!
-wget https://raw.githubusercontent.com/your-repo/neuron_detector.py
-# or curl -O https://raw.githubusercontent.com/your-repo/neuron_detector.py
+wget https://raw.githubusercontent.com/jimburtoft/Neuron-SDK-Detector/main/neuron_detector.py
+# or curl -O https://raw.githubusercontent.com/jimburtoft/Neuron-SDK-Detector/main/neuron_detector.py
 
-# Install dependencies
-pip install requests trafilatura
+# Install only dependency (for downloading database)
+pip install requests
 
 # Run immediately - database downloads automatically
 python3 neuron_detector.py
@@ -43,9 +43,14 @@ python3 neuron_detector.py
 ### Full Repository (Optional)
 The complete repository includes:
 - `neuron_detector.py` - **Main detection tool (this is all you need!)**
-- `neuron_database_updater.py` - Database maintenance utility (optional)
+- `neuron_database_updater.py` - Database maintenance utility (requires trafilatura)
 - `neuron_versions.json` - Pre-built database (automatically downloaded)
 - `README.md` - Documentation
+
+```bash
+# For database maintenance (only if using updater script)
+pip install requests trafilatura
+```
 
 No installation required - the tool is self-contained. Dependencies will be installed automatically when needed.
 

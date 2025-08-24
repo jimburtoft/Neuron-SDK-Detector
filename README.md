@@ -23,7 +23,31 @@ The AWS Neuron SDK consists of multiple system packages and Python packages, eac
 
 ## Installation
 
-No installation required - the tool is self-contained Python scripts. Dependencies will be installed automatically when needed.
+**🚀 Quick Start: You only need the `neuron_detector.py` file!**
+
+The detector script is completely standalone and automatically downloads the version database from GitHub when needed. Simply download `neuron_detector.py` and you're ready to go.
+
+### Single File Installation
+```bash
+# Download just the detector script - this is all you need!
+wget https://raw.githubusercontent.com/your-repo/neuron_detector.py
+# or curl -O https://raw.githubusercontent.com/your-repo/neuron_detector.py
+
+# Install dependencies
+pip install requests trafilatura
+
+# Run immediately - database downloads automatically
+python3 neuron_detector.py
+```
+
+### Full Repository (Optional)
+The complete repository includes:
+- `neuron_detector.py` - **Main detection tool (this is all you need!)**
+- `neuron_database_updater.py` - Database maintenance utility (optional)
+- `neuron_versions.json` - Pre-built database (automatically downloaded)
+- `README.md` - Documentation
+
+No installation required - the tool is self-contained. Dependencies will be installed automatically when needed.
 
 ## Usage
 

@@ -375,17 +375,29 @@ class VersionDatabase:
         unknown_packages = {}
         
         for package_name, package_version in all_packages.items():
-            key = f"{package_name}@{package_version}"
+            # Try normalized package names (both hyphen and underscore versions)
+            normalized_names = [
+                package_name,
+                package_name.replace('-', '_'),
+                package_name.replace('_', '-')
+            ]
             
-            if key in self.package_to_sdk_map:
-                # Package version matches known SDK(s) - pick the newest one
-                matching_sdks = self.package_to_sdk_map[key]
-                newest_sdk = max(matching_sdks, key=lambda x: [int(i) for i in x.split('.')])
+            found_match = False
+            for norm_name in normalized_names:
+                key = f"{norm_name}@{package_version}"
                 
-                if newest_sdk not in detected_sdks:
-                    detected_sdks[newest_sdk] = {}
-                detected_sdks[newest_sdk][package_name] = package_version
-            else:
+                if key in self.package_to_sdk_map:
+                    # Package version matches known SDK(s) - pick the newest one
+                    matching_sdks = self.package_to_sdk_map[key]
+                    newest_sdk = max(matching_sdks, key=lambda x: [int(i) for i in x.split('.')])
+                    
+                    if newest_sdk not in detected_sdks:
+                        detected_sdks[newest_sdk] = {}
+                    detected_sdks[newest_sdk][package_name] = package_version
+                    found_match = True
+                    break
+            
+            if not found_match:
                 # Package not found in any SDK - add to unknown
                 unknown_packages[package_name] = package_version
         
@@ -402,18 +414,30 @@ class VersionDatabase:
         package_to_highest_sdk = {}  # Track which SDK each package maps to
         
         for package_name, package_version in packages.items():
-            key = f"{package_name}@{package_version}"
+            # Try normalized package names (both hyphen and underscore versions)
+            normalized_names = [
+                package_name,
+                package_name.replace('-', '_'),
+                package_name.replace('_', '-')
+            ]
             
-            if key in self.package_to_sdk_map:
-                # Package version matches known SDK(s) - pick the newest one
-                matching_sdks = self.package_to_sdk_map[key]
-                newest_sdk = max(matching_sdks, key=lambda x: [int(i) for i in x.split('.')])
+            found_match = False
+            for norm_name in normalized_names:
+                key = f"{norm_name}@{package_version}"
                 
-                if newest_sdk not in detected_sdks:
-                    detected_sdks[newest_sdk] = {}
-                detected_sdks[newest_sdk][package_name] = package_version
-                package_to_highest_sdk[package_name] = newest_sdk
-            else:
+                if key in self.package_to_sdk_map:
+                    # Package version matches known SDK(s) - pick the newest one
+                    matching_sdks = self.package_to_sdk_map[key]
+                    newest_sdk = max(matching_sdks, key=lambda x: [int(i) for i in x.split('.')])
+                    
+                    if newest_sdk not in detected_sdks:
+                        detected_sdks[newest_sdk] = {}
+                    detected_sdks[newest_sdk][package_name] = package_version
+                    package_to_highest_sdk[package_name] = newest_sdk
+                    found_match = True
+                    break
+            
+            if not found_match:
                 # Package not found in any SDK - add to unknown
                 unknown_packages[package_name] = package_version
         

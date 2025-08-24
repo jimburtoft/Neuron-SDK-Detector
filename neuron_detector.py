@@ -605,7 +605,7 @@ def print_simple_output(analysis, venv_analyses=None):
         if has_unknown_versions:
             print("\n⚠️  Unknown package versions:")
             for pkg_name, pkg_version in sorted(all_unknown.items()):
-                print(f"  {pkg_name}: {pkg_version}")
+                print(f"  ❌ {pkg_name}: {pkg_version}")
     elif not has_mixed_installation:
         # Clean single SDK installation - show version with date
         sdk_version = list(analysis['detected_sdks'].keys())[0]
@@ -620,6 +620,9 @@ def print_simple_output(analysis, venv_analyses=None):
             print(f"Mixed installation detected (latest: {latest_sdk} {release_date}):")
             
             # Show all known packages by SDK
+            latest_sdk = max(analysis['detected_sdks'].keys(), 
+                            key=lambda x: [int(i) for i in x.split('.')])
+            
             for sdk_version in sorted(analysis['detected_sdks'].keys(), 
                                     key=lambda x: [int(i) for i in x.split('.')], reverse=True):
                 packages = analysis['detected_sdks'][sdk_version]
@@ -627,7 +630,11 @@ def print_simple_output(analysis, venv_analyses=None):
                     sdk_date = get_sdk_release_date(sdk_version)
                     print(f"  SDK {sdk_version} ({sdk_date}):")
                     for pkg_name, pkg_version in sorted(packages.items()):
-                        print(f"    {pkg_name}: {pkg_version}")
+                        # Add emphasis for out-of-date packages
+                        if sdk_version != latest_sdk:
+                            print(f"    ⚠️ {pkg_name}: {pkg_version}")
+                        else:
+                            print(f"    {pkg_name}: {pkg_version}")
         else:
             print("Mixed installation detected:")
             
@@ -635,7 +642,7 @@ def print_simple_output(analysis, venv_analyses=None):
         if all_unknown:
             print("  Unknown versions:")
             for pkg_name, pkg_version in sorted(all_unknown.items()):
-                print(f"    {pkg_name}: {pkg_version}")
+                print(f"    ❌ {pkg_name}: {pkg_version}")
 
 
 def print_venv_summary(venv_analyses):
@@ -647,22 +654,36 @@ def print_venv_summary(venv_analyses):
     for venv_analysis in venv_analyses:
         venv_name = venv_analysis['venv_path'].split('/')[-1]  # Get just the venv name
         
+        # Check if this venv has unknown packages or mixed SDKs
+        has_unknown_in_venv = bool(venv_analysis.get('unknown_packages', {}))
+        has_multiple_sdks_in_venv = len(venv_analysis['detected_sdks']) > 1
+        has_mixed_in_venv = has_unknown_in_venv or has_multiple_sdks_in_venv
+        
         if venv_analysis['detected_sdks']:
-            if len(venv_analysis['detected_sdks']) == 1:
+            if not has_mixed_in_venv:
+                # Clean single SDK in this venv
                 sdk_version = list(venv_analysis['detected_sdks'].keys())[0]
-                print(f"  {venv_name}: Neuron SDK {sdk_version}")
+                release_date = get_sdk_release_date(sdk_version)
+                print(f"  {venv_name}: Neuron SDK {sdk_version} ({release_date})")
             else:
-                # Multiple SDKs in one venv - show all components with their highest SDK
+                # Mixed installation in this venv - show detailed breakdown
                 print(f"  {venv_name}: Mixed installation:")
-                # Get package versions from the detected_sdks
-                for pkg_name, highest_sdk in sorted(venv_analysis['package_to_highest_sdk'].items()):
-                    # Find the actual package version
-                    pkg_version = None
-                    for sdk_ver, packages in venv_analysis['detected_sdks'].items():
-                        if pkg_name in packages:
-                            pkg_version = packages[pkg_name]
-                            break
-                    print(f"    {pkg_name}: {pkg_version} ({highest_sdk})")
+                
+                # Show known packages by SDK
+                for sdk_ver in sorted(venv_analysis['detected_sdks'].keys(), 
+                                    key=lambda x: [int(i) for i in x.split('.')], reverse=True):
+                    packages = venv_analysis['detected_sdks'][sdk_ver]
+                    if packages:
+                        sdk_date = get_sdk_release_date(sdk_ver)
+                        print(f"    SDK {sdk_ver} ({sdk_date}):")
+                        for pkg_name, pkg_version in sorted(packages.items()):
+                            print(f"      {pkg_name}: {pkg_version}")
+                
+                # Show unknown packages
+                if has_unknown_in_venv:
+                    print(f"    Unknown versions:")
+                    for pkg_name, pkg_version in sorted(venv_analysis['unknown_packages'].items()):
+                        print(f"      ❌ {pkg_name}: {pkg_version}")
         
         elif venv_analysis['unknown_packages']:
             # Show deviant packages

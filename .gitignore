@@ -1,0 +1,15 @@
+# Replit-specific files
+.replit
+pyproject.toml
+uv.lock
+
+# Chat/development artifacts
+attached_assets/
+
+# Outdated files
+demo.py
+updated_neuron_versions.json
+
+# Keep sample files (commented out to ensure they sync)
+# sample_output.txt
+# sample_venv_output.txt

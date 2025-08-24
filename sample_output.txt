@@ -1,0 +1,13 @@
+Loaded database with 37 SDK versions
+Mixed installation detected (latest: 2.25.0 07/31/2025):
+  SDK 2.25.0 (07/31/2025):
+    aws-neuronx-collectives: 2.27.34.0
+    aws-neuronx-dkms: 2.23.9.0
+    aws-neuronx-oci-hook: 2.11.42.0
+    aws-neuronx-runtime-lib: 2.27.23.0
+    aws-neuronx-tools: 2.25.145.0
+    libneuronxla: 2.2.8201.0
+    neuronx-cc: 2.20.9961.0
+    torch-neuronx: 2.7.0.2.9.9357
+  Unknown versions:
+    ❌ neuronx-distributed: 0.14.18122 [closest: ↓0.13.14393 (SDK 2.24.0), ↑0.14.18461 (SDK 2.25.0)]

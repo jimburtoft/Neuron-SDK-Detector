@@ -859,9 +859,19 @@ def print_venv_summary(venv_analyses):
                         print(f"      ❌ {pkg_name}: {pkg_version}{closest_info}")
         
         elif venv_analysis['unknown_packages']:
-            # Show deviant packages
-            unknown_list = [f"{name}:{ver}" for name, ver in venv_analysis['unknown_packages'].items()]
-            print(f"  {venv_name}: Unknown versions - {', '.join(unknown_list)}")
+            # Show deviant packages with closest versions
+            print(f"  {venv_name}: Unknown versions:")
+            for pkg_name, pkg_version in sorted(venv_analysis['unknown_packages'].items()):
+                below, above = find_closest_versions(pkg_name, pkg_version)
+                closest_info = ""
+                if below or above:
+                    closest_parts = []
+                    if below:
+                        closest_parts.append(f"↓{below}")
+                    if above:
+                        closest_parts.append(f"↑{above}")
+                    closest_info = f" [closest: {', '.join(closest_parts)}]"
+                print(f"    ❌ {pkg_name}: {pkg_version}{closest_info}")
         
         else:
             print(f"  {venv_name}: No Neuron packages detected")

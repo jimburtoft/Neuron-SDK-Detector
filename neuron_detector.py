@@ -284,7 +284,7 @@ class VersionDatabase:
         self.sdk_data = {}
         self.package_to_sdk_map = {}
     
-    def load_database(self) -> bool:
+    def load_database(self, quiet=False) -> bool:
         """Load version database from file or download if needed."""
         local_path = Path(self.database_path)
         
@@ -294,14 +294,17 @@ class VersionDatabase:
                 with open(local_path, 'r') as f:
                     self.sdk_data = json.load(f)
                 self._build_package_map()
-                print(f"Loaded database with {len(self.sdk_data)} SDK versions")
+                if not quiet:
+                    print(f"Loaded database with {len(self.sdk_data)} SDK versions")
                 return True
             except Exception as e:
-                print(f"Error loading local database: {e}")
+                if not quiet:
+                    print(f"Error loading local database: {e}")
         
         # Try to download from GitHub
         try:
-            print("Downloading database from GitHub...")
+            if not quiet:
+                print("Downloading database from GitHub...")
             response = requests.get(self.DEFAULT_DATABASE_URL, timeout=30)
             response.raise_for_status()
             
@@ -309,15 +312,17 @@ class VersionDatabase:
             self._build_package_map()
             
             # Save locally for future use
-            self.save_database(self.sdk_data)
-            print(f"Downloaded database with {len(self.sdk_data)} SDK versions")
+            self.save_database(self.sdk_data, quiet=quiet)
+            if not quiet:
+                print(f"Downloaded database with {len(self.sdk_data)} SDK versions")
             return True
             
         except Exception as e:
-            print(f"Error downloading database: {e}")
+            if not quiet:
+                print(f"Error downloading database: {e}")
             return False
     
-    def save_database(self, data: Dict[str, Any]) -> None:
+    def save_database(self, data: Dict[str, Any], quiet=False) -> None:
         """Save database to local file."""
         self.sdk_data = data
         self._build_package_map()
@@ -325,7 +330,8 @@ class VersionDatabase:
         with open(self.database_path, 'w') as f:
             json.dump(data, f, indent=2, sort_keys=True)
         
-        print(f"Saved database to {self.database_path}")
+        if not quiet:
+            print(f"Saved database to {self.database_path}")
     
     def _build_package_map(self) -> None:
         """Build reverse mapping from package name+version to SDK versions."""
@@ -512,9 +518,11 @@ Examples:
         global _version_database
         _version_database = db  # Store global reference for release dates and closest versions
         
-        # Load version database
-        if not db.load_database():
-            print("Error: Could not load or download version database")
+        # Load version database (quiet mode for --version flag)
+        quiet_mode = args.version
+        if not db.load_database(quiet=quiet_mode):
+            if not quiet_mode:
+                print("Error: Could not load or download version database")
             return 1
         
         # Detect installed packages

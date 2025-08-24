@@ -548,10 +548,10 @@ Examples:
         if args.verbose:
             print_verbose_output(analysis, system_packages, current_python_packages, venv_packages, venv_analyses)
         elif args.check_venvs:
-            print_simple_output(analysis)
+            print_simple_output(analysis, venv_analyses)
             print_venv_summary(venv_analyses)
         else:
-            print_simple_output(analysis)
+            print_simple_output(analysis, venv_analyses)
             
     except KeyboardInterrupt:
         print("\nOperation cancelled by user.")
@@ -563,13 +563,11 @@ Examples:
     return 0
 
 
-def print_simple_output(analysis):
+def print_simple_output(analysis, venv_analyses=None):
     """Print simple SDK version output."""
     if not analysis['detected_sdks']:
         print("No Neuron SDK detected")
-        return
-    
-    if len(analysis['detected_sdks']) == 1:
+    elif len(analysis['detected_sdks']) == 1:
         sdk_version = list(analysis['detected_sdks'].keys())[0]
         print(f"Neuron SDK version {sdk_version}")
     else:
@@ -577,6 +575,26 @@ def print_simple_output(analysis):
         latest_sdk = max(analysis['detected_sdks'].keys(), 
                         key=lambda x: [int(i) for i in x.split('.')])
         print(f"Neuron SDK version {latest_sdk} (mixed installation detected)")
+    
+    # Collect all unknown versions from main analysis and virtual environments
+    all_unknown = {}
+    
+    # Add unknown versions from main analysis
+    if 'unknown_packages' in analysis:
+        all_unknown.update(analysis['unknown_packages'])
+    
+    # Add unknown versions from virtual environments
+    if venv_analyses:
+        for venv_analysis in venv_analyses:
+            if 'unknown_packages' in venv_analysis:
+                all_unknown.update(venv_analysis['unknown_packages'])
+    
+    # Display unknown versions warning if any found
+    if all_unknown:
+        print(f"\n⚠️  WARNING: Unknown package versions detected:")
+        for pkg_name, pkg_version in sorted(all_unknown.items()):
+            print(f"  {pkg_name}: {pkg_version}")
+        print("  These versions are not found in any known SDK release.")
 
 
 def print_venv_summary(venv_analyses):

@@ -445,6 +445,9 @@ class VersionDatabase:
         return False
 
 
+_version_database = None  # Global reference to access release dates
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Detect AWS Neuron SDK version from installed packages",
@@ -488,6 +491,8 @@ Examples:
     try:
         # Initialize version database
         db = VersionDatabase(args.data_file)
+        global _version_database
+        _version_database = db  # Store global reference for release dates
         
         # Load version database
         if not db.load_database():
@@ -563,19 +568,20 @@ Examples:
     return 0
 
 
+def get_sdk_release_date(sdk_version):
+    """Get release date for an SDK version from the database."""
+    global _version_database
+    if not _version_database:
+        return "date unknown"
+    
+    sdk_data = _version_database.sdk_data.get(sdk_version, {})
+    if isinstance(sdk_data, dict) and 'release_date' in sdk_data:
+        return sdk_data['release_date']
+    return "date unknown"
+
+
 def print_simple_output(analysis, venv_analyses=None):
     """Print simple SDK version output."""
-    if not analysis['detected_sdks']:
-        print("No Neuron SDK detected")
-    elif len(analysis['detected_sdks']) == 1:
-        sdk_version = list(analysis['detected_sdks'].keys())[0]
-        print(f"Neuron SDK version {sdk_version}")
-    else:
-        # Multiple SDKs detected - show the most recent
-        latest_sdk = max(analysis['detected_sdks'].keys(), 
-                        key=lambda x: [int(i) for i in x.split('.')])
-        print(f"Neuron SDK version {latest_sdk} (mixed installation detected)")
-    
     # Collect all unknown versions from main analysis and virtual environments
     all_unknown = {}
     
@@ -589,12 +595,47 @@ def print_simple_output(analysis, venv_analyses=None):
             if 'unknown_packages' in venv_analysis:
                 all_unknown.update(venv_analysis['unknown_packages'])
     
-    # Display unknown versions warning if any found
-    if all_unknown:
-        print(f"\n⚠️  WARNING: Unknown package versions detected:")
-        for pkg_name, pkg_version in sorted(all_unknown.items()):
-            print(f"  {pkg_name}: {pkg_version}")
-        print("  These versions are not found in any known SDK release.")
+    # Determine if we have a clean single SDK installation
+    has_unknown_versions = bool(all_unknown)
+    has_multiple_sdks = len(analysis['detected_sdks']) > 1
+    has_mixed_installation = has_unknown_versions or has_multiple_sdks
+    
+    if not analysis['detected_sdks']:
+        print("No Neuron SDK detected")
+        if has_unknown_versions:
+            print("\n⚠️  Unknown package versions:")
+            for pkg_name, pkg_version in sorted(all_unknown.items()):
+                print(f"  {pkg_name}: {pkg_version}")
+    elif not has_mixed_installation:
+        # Clean single SDK installation - show version with date
+        sdk_version = list(analysis['detected_sdks'].keys())[0]
+        release_date = get_sdk_release_date(sdk_version)
+        print(f"Neuron SDK version {sdk_version} ({release_date})")
+    else:
+        # Mixed installation or unknown versions - show detailed breakdown
+        if analysis['detected_sdks']:
+            latest_sdk = max(analysis['detected_sdks'].keys(), 
+                            key=lambda x: [int(i) for i in x.split('.')])
+            release_date = get_sdk_release_date(latest_sdk)
+            print(f"Mixed installation detected (latest: {latest_sdk} {release_date}):")
+            
+            # Show all known packages by SDK
+            for sdk_version in sorted(analysis['detected_sdks'].keys(), 
+                                    key=lambda x: [int(i) for i in x.split('.')], reverse=True):
+                packages = analysis['detected_sdks'][sdk_version]
+                if packages:
+                    sdk_date = get_sdk_release_date(sdk_version)
+                    print(f"  SDK {sdk_version} ({sdk_date}):")
+                    for pkg_name, pkg_version in sorted(packages.items()):
+                        print(f"    {pkg_name}: {pkg_version}")
+        else:
+            print("Mixed installation detected:")
+            
+        # Show unknown versions
+        if all_unknown:
+            print("  Unknown versions:")
+            for pkg_name, pkg_version in sorted(all_unknown.items()):
+                print(f"    {pkg_name}: {pkg_version}")
 
 
 def print_venv_summary(venv_analyses):

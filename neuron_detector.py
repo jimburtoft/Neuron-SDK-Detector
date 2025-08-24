@@ -370,9 +370,59 @@ class VersionDatabase:
                 if name not in all_packages or self._is_newer_version(version, all_packages[name]):
                     all_packages[name] = version
         
-        # Find SDK matches
+        return self._analyze_packages_with_anchor(all_packages)
+    
+    def _find_anchor_sdk(self, packages: Dict[str, str]) -> Optional[str]:
+        """Find the anchor SDK version based on neuronx-cc or neuron-cc packages."""
+        anchor_packages = ['neuronx-cc', 'neuron-cc', 'neuronx_cc', 'neuron_cc']
+        
+        for anchor_pkg in anchor_packages:
+            if anchor_pkg in packages:
+                version = packages[anchor_pkg]
+                # Try normalized package names
+                normalized_names = [
+                    anchor_pkg,
+                    anchor_pkg.replace('-', '_'),
+                    anchor_pkg.replace('_', '-')
+                ]
+                
+                for norm_name in normalized_names:
+                    key = f"{norm_name}@{version}"
+                    if key in self.package_to_sdk_map:
+                        matching_sdks = self.package_to_sdk_map[key]
+                        return max(matching_sdks, key=lambda x: [int(i) for i in x.split('.')])
+        
+        return None
+    
+    def _package_exists_in_sdk(self, package_name: str, package_version: str, sdk_version: str) -> bool:
+        """Check if a specific package version exists in the given SDK."""
+        if sdk_version not in self.sdk_data:
+            return False
+            
+        sdk_data = self.sdk_data[sdk_version]
+        platforms = sdk_data.get('platforms', sdk_data) if isinstance(sdk_data, dict) and 'platforms' in sdk_data else sdk_data
+        
+        # Try normalized package names
+        normalized_names = [
+            package_name,
+            package_name.replace('-', '_'),
+            package_name.replace('_', '-')
+        ]
+        
+        for platform, packages in platforms.items():
+            for norm_name in normalized_names:
+                if norm_name in packages and packages[norm_name] == package_version:
+                    return True
+        
+        return False
+    
+    def _analyze_packages_with_anchor(self, all_packages: Dict[str, str]) -> Dict[str, Any]:
+        """Analyze packages using anchor SDK detection."""
         detected_sdks = {}
         unknown_packages = {}
+        
+        # Find anchor SDK
+        anchor_sdk = self._find_anchor_sdk(all_packages)
         
         for package_name, package_version in all_packages.items():
             # Try normalized package names (both hyphen and underscore versions)
@@ -387,13 +437,18 @@ class VersionDatabase:
                 key = f"{norm_name}@{package_version}"
                 
                 if key in self.package_to_sdk_map:
-                    # Package version matches known SDK(s) - pick the newest one
                     matching_sdks = self.package_to_sdk_map[key]
-                    newest_sdk = max(matching_sdks, key=lambda x: [int(i) for i in x.split('.')])
                     
-                    if newest_sdk not in detected_sdks:
-                        detected_sdks[newest_sdk] = {}
-                    detected_sdks[newest_sdk][package_name] = package_version
+                    # If we have an anchor SDK and this package exists in the anchor SDK, prefer it
+                    if anchor_sdk and anchor_sdk in matching_sdks:
+                        target_sdk = anchor_sdk
+                    else:
+                        # Otherwise use the newest SDK
+                        target_sdk = max(matching_sdks, key=lambda x: [int(i) for i in x.split('.')])
+                    
+                    if target_sdk not in detected_sdks:
+                        detected_sdks[target_sdk] = {}
+                    detected_sdks[target_sdk][package_name] = package_version
                     found_match = True
                     break
             
@@ -409,42 +464,20 @@ class VersionDatabase:
     
     def analyze_venv_individually(self, venv_path: str, packages: Dict[str, str]) -> Dict[str, Any]:
         """Analyze a single virtual environment's packages."""
-        detected_sdks = {}
-        unknown_packages = {}
         package_to_highest_sdk = {}  # Track which SDK each package maps to
         
-        for package_name, package_version in packages.items():
-            # Try normalized package names (both hyphen and underscore versions)
-            normalized_names = [
-                package_name,
-                package_name.replace('-', '_'),
-                package_name.replace('_', '-')
-            ]
-            
-            found_match = False
-            for norm_name in normalized_names:
-                key = f"{norm_name}@{package_version}"
-                
-                if key in self.package_to_sdk_map:
-                    # Package version matches known SDK(s) - pick the newest one
-                    matching_sdks = self.package_to_sdk_map[key]
-                    newest_sdk = max(matching_sdks, key=lambda x: [int(i) for i in x.split('.')])
-                    
-                    if newest_sdk not in detected_sdks:
-                        detected_sdks[newest_sdk] = {}
-                    detected_sdks[newest_sdk][package_name] = package_version
-                    package_to_highest_sdk[package_name] = newest_sdk
-                    found_match = True
-                    break
-            
-            if not found_match:
-                # Package not found in any SDK - add to unknown
-                unknown_packages[package_name] = package_version
+        # Use the anchor-based analysis
+        analysis = self._analyze_packages_with_anchor(packages)
+        
+        # Build package to SDK mapping for this venv
+        for sdk_version, sdk_packages in analysis['detected_sdks'].items():
+            for pkg_name in sdk_packages:
+                package_to_highest_sdk[pkg_name] = sdk_version
         
         return {
             'venv_path': venv_path,
-            'detected_sdks': detected_sdks,
-            'unknown_packages': unknown_packages,
+            'detected_sdks': analysis['detected_sdks'],
+            'unknown_packages': analysis['unknown_packages'],
             'package_to_highest_sdk': package_to_highest_sdk,
             'total_packages': len(packages)
         }

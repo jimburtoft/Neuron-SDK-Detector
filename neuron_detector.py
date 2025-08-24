@@ -510,7 +510,7 @@ Examples:
         # Initialize version database
         db = VersionDatabase(args.data_file)
         global _version_database
-        _version_database = db  # Store global reference for release dates
+        _version_database = db  # Store global reference for release dates and closest versions
         
         # Load version database
         if not db.load_database():
@@ -688,6 +688,13 @@ def find_closest_versions(package_name, unknown_version):
     if not _version_database:
         return None, None
     
+    # Normalize package name (try both hyphen and underscore versions)
+    normalized_names = [
+        package_name,
+        package_name.replace('-', '_'),
+        package_name.replace('_', '-')
+    ]
+    
     # Collect all known versions for this package
     known_versions = []
     for sdk_version, sdk_data in _version_database.sdk_data.items():
@@ -697,8 +704,10 @@ def find_closest_versions(package_name, unknown_version):
             platforms = sdk_data
             
         for platform, packages in platforms.items():
-            if package_name in packages:
-                known_versions.append(packages[package_name])
+            # Check all normalized package name variants
+            for norm_name in normalized_names:
+                if norm_name in packages:
+                    known_versions.append(packages[norm_name])
     
     if not known_versions:
         return None, None
@@ -706,17 +715,31 @@ def find_closest_versions(package_name, unknown_version):
     # Remove duplicates and sort by version
     unique_versions = list(set(known_versions))
     try:
-        # Sort versions (simple string comparison, may not be perfect for all cases)
-        unique_versions.sort(key=lambda x: [int(i) if i.isdigit() else i for i in x.replace('.', ' ').split()])
+        # Sort versions using proper version comparison
+        def version_key(v):
+            # Split version into numeric components for proper sorting
+            parts = []
+            for part in v.split('.'):
+                if part.isdigit():
+                    parts.append(int(part))
+                else:
+                    parts.append(part)
+            return parts
+        
+        unique_versions.sort(key=version_key)
         
         # Find closest versions
         below_version = None
         above_version = None
         
+        # Convert unknown_version for comparison
+        unknown_key = version_key(unknown_version)
+        
         for version in unique_versions:
-            if version < unknown_version:
+            version_key_val = version_key(version)
+            if version_key_val < unknown_key:
                 below_version = version
-            elif version > unknown_version and above_version is None:
+            elif version_key_val > unknown_key and above_version is None:
                 above_version = version
                 break
                 

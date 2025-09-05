@@ -43,7 +43,8 @@ class TestNeuronUpdate:
             self.test_venv_package_updates,
             self.test_apt_vs_yum_commands,
             self.test_edge_cases,
-            self.test_real_system_scenario
+            self.test_real_system_scenario,
+            self.test_mixed_installation_scenario
         ]
         
         for test_method in test_methods:
@@ -372,6 +373,102 @@ class TestNeuronUpdate:
                 assert '#!/bin/bash' in script_224, "Expected bash script format"
         
         print("✅ Real system scenario tested correctly")
+    
+    def test_mixed_installation_scenario(self):
+        """Test with real mixed installation (SDK 2.24.0 + 2.22.0 + 2.25.0)."""
+        print("\n12. Testing Mixed Installation Scenario (Real System)")
+        
+        # Real mixed system data from user's second output
+        mixed_system_packages = {
+            'aws-neuronx-collectives': '2.26.43.0',      # SDK 2.24.0
+            'aws-neuronx-dkms': '2.22.2.0',              # SDK 2.24.0
+            'aws-neuronx-oci-hook': '2.10.56.0',         # SDK 2.24.0
+            'aws-neuronx-runtime-lib': '2.26.42.0',      # SDK 2.24.0
+            'aws-neuronx-tools': '2.24.54.0'             # SDK 2.24.0
+        }
+        
+        mixed_python_packages = {
+            'libneuronxla': '2.2.4410.0',                # SDK 2.24.0
+            'neuronx-cc': '2.19.8089.0',                 # SDK 2.24.0 (anchor)
+            'neuronx-distributed': '0.13.14393',         # SDK 2.24.0
+            'tensorboard-plugin-neuronx': '2.6.117.0',   # SDK 2.22.0 (out of date)
+            'torch-neuronx': '2.7.0.2.8.6734'           # SDK 2.24.0
+        }
+        
+        # Complex venv scenario with multiple SDK versions
+        mixed_venv_packages = {
+            '/opt/aws_neuronx_venv_pytorch_2_7': {
+                'libneuronxla': '2.2.4410.0',            # SDK 2.24.0
+                'neuronx-cc': '2.19.8089.0',             # SDK 2.24.0
+                'neuronx-distributed': '0.13.14393',     # SDK 2.24.0
+                'torch-neuronx': '2.7.0.2.8.6734',      # SDK 2.24.0
+                'tensorboard-plugin-neuronx': '2.6.117.0' # SDK 2.22.0 (out of date)
+            },
+            '/opt/aws_neuronx_venv_tensorflow_2_10': {
+                'neuronx-cc': '2.19.8089.0',             # SDK 2.24.0
+                'tensorflow-neuron': '2.10.1.2.12.2.0', # Exists in multiple SDKs
+                'tensorflow-neuronx': '2.10.1.2.1.0',   # Exists in multiple SDKs
+                'tensorboard-plugin-neuronx': '2.6.117.0' # SDK 2.22.0 (out of date)
+            },
+            '/opt/aws_neuron_venv_tensorflow_2_10_inf1': {
+                'neuron-cc': '1.24.0.0',                 # SDK 2.25.0 (Inf1)
+                'tensorflow-neuron': '2.10.1.2.12.2.0', # Exists in multiple SDKs
+                'tensorboard-plugin-neuronx': '2.6.117.0' # SDK 2.22.0 (out of date)
+            }
+        }
+        
+        # Test updating this mixed system to latest SDK (2.25.0)
+        generator = NeuronUpdateScriptGenerator(target_sdk='2.25.0')
+        
+        with patch.object(generator, 'detect_current_packages') as mock_detect:
+            mock_detect.return_value = {
+                'system_packages': mixed_system_packages,
+                'python_packages': mixed_python_packages,
+                'venv_packages': mixed_venv_packages,
+                'analysis': {}
+            }
+            
+            with patch.object(generator.pkg_mgr_detector, 'detect_package_manager',
+                             return_value=('apt', 'ubuntu')):
+                
+                script = generator.generate_update_script()
+                
+                # Should update system packages from 2.24.0 to 2.25.0
+                assert 'apt-get install' in script, "Expected system package updates"
+                
+                # Should update Python packages 
+                assert 'pip install --upgrade' in script, "Expected Python package updates"
+                
+                # Should update multiple virtual environments
+                assert 'aws_neuronx_venv_pytorch_2_7' in script, "Expected pytorch venv update"
+                assert 'aws_neuronx_venv_tensorflow_2_10' in script, "Expected tensorflow venv update"
+                assert 'aws_neuron_venv_tensorflow_2_10_inf1' in script, "Expected inf1 venv update"
+                
+                # Should handle out-of-date tensorboard plugin
+                assert 'tensorboard-plugin-neuronx' in script, "Expected tensorboard update"
+        
+        # Test the anchor-based detection with this mixed scenario
+        # The neuronx-cc version should anchor to SDK 2.24.0
+        generator_anchor = NeuronUpdateScriptGenerator(target_sdk='2.24.0')
+        
+        with patch.object(generator_anchor, 'detect_current_packages') as mock_detect:
+            mock_detect.return_value = {
+                'system_packages': mixed_system_packages,
+                'python_packages': mixed_python_packages,
+                'venv_packages': {},
+                'analysis': {}
+            }
+            
+            with patch.object(generator_anchor.pkg_mgr_detector, 'detect_package_manager',
+                             return_value=('apt', 'ubuntu')):
+                
+                script_anchor = generator_anchor.generate_update_script()
+                
+                # Since system is already mostly on 2.24.0, should have minimal updates
+                # Only the out-of-date tensorboard plugin should need updating
+                assert 'SDK version 2.24.0' in script_anchor, "Expected target SDK 2.24.0"
+                
+        print("✅ Mixed installation scenario tested correctly")
     
     def _print_summary(self):
         """Print test results summary."""

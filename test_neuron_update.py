@@ -108,8 +108,8 @@ class TestNeuronUpdate:
             command_str = ' '.join(commands)
             assert 'apt-get update' in command_str, "Expected apt-get update command"
             assert 'apt-get install' in command_str, "Expected apt-get install command"
-            assert 'aws-neuronx-dkms' in command_str, "Expected outdated package in commands"
-            assert 'aws-neuronx-tools' in command_str, "Expected outdated package in commands"
+            assert 'aws-neuronx-dkms=' in command_str, "Expected versioned package in commands"
+            assert 'aws-neuronx-tools=' in command_str, "Expected versioned package in commands"
         
         print("✅ System package updates generated correctly")
     
@@ -180,7 +180,8 @@ class TestNeuronUpdate:
             with patch.object(generator.pkg_mgr_detector, 'detect_package_manager',
                              return_value=('apt', 'ubuntu')):
                 
-                script = generator.generate_update_script()
+                # Test with check_venvs=True to include virtual environments
+                script = generator.generate_update_script(check_venvs=True)
                 
                 # Should contain all types of updates
                 assert 'apt-get' in script, "Expected system package commands"
@@ -431,7 +432,8 @@ class TestNeuronUpdate:
             with patch.object(generator.pkg_mgr_detector, 'detect_package_manager',
                              return_value=('apt', 'ubuntu')):
                 
-                script = generator.generate_update_script()
+                # Test with check_venvs=True to include virtual environments
+                script = generator.generate_update_script(check_venvs=True)
                 
                 # Should update system packages from 2.24.0 to 2.25.0
                 assert 'apt-get install' in script, "Expected system package updates"

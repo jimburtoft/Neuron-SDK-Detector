@@ -98,13 +98,17 @@ class NeuronUpdateScriptGenerator:
         else:
             self.target_packages = target_data
     
-    def detect_current_packages(self) -> Dict[str, Any]:
+    def detect_current_packages(self, check_venvs: bool = False) -> Dict[str, Any]:
         """Detect currently installed Neuron packages."""
         print("Detecting currently installed Neuron packages...")
         
         system_packages = self.detector.get_system_packages()
         python_packages = self.detector.get_python_packages() 
-        venv_packages = self.detector.get_venv_packages('/opt')
+        
+        # Only scan virtual environments if requested
+        venv_packages = {}
+        if check_venvs:
+            venv_packages = self.detector.get_venv_packages('/opt')
         
         # Analyze packages
         analysis = self.db.analyze_installed_packages(
@@ -140,7 +144,9 @@ class NeuronUpdateScriptGenerator:
                 # Map package name for system installation
                 system_pkg_name = self._map_to_system_package_name(current_pkg, distribution)
                 if system_pkg_name:
-                    packages_to_update.append(system_pkg_name)
+                    # Specify exact version for system packages
+                    versioned_pkg = f"{system_pkg_name}={target_version}"
+                    packages_to_update.append(versioned_pkg)
                     print(f"  System package: {current_pkg} {current_version} -> {target_version}")
         
         if packages_to_update:
@@ -181,7 +187,7 @@ class NeuronUpdateScriptGenerator:
         return commands
     
     def generate_python_package_updates(self, current_python_packages: Dict[str, str], 
-                                      current_venv_packages: Dict[str, Dict[str, str]]) -> List[str]:
+                                      current_venv_packages: Optional[Dict[str, Dict[str, str]]] = None) -> List[str]:
         """Generate Python package update commands."""
         commands = []
         
@@ -200,25 +206,26 @@ class NeuronUpdateScriptGenerator:
                 f"pip install --upgrade {' '.join(python_updates)}"
             ])
         
-        # Update virtual environment packages
-        for venv_path, venv_pkgs in current_venv_packages.items():
-            venv_updates = []
-            venv_name = Path(venv_path).name
-            
-            for current_pkg, current_version in venv_pkgs.items():
-                target_version = self._find_target_python_version(current_pkg)
-                if target_version and target_version != current_version:
-                    venv_updates.append(f"{current_pkg}=={target_version}")
-            
-            if venv_updates:
-                commands.extend([
-                    "",
-                    f"echo 'Updating virtual environment: {venv_name}...'",
-                    f"source {venv_path}/bin/activate",
-                    f"pip install --upgrade {' '.join(venv_updates)}",
-                    "deactivate"
-                ])
-                print(f"  Virtual env {venv_name}: {len(venv_updates)} packages to update")
+        # Update virtual environment packages (only if provided)
+        if current_venv_packages:
+            for venv_path, venv_pkgs in current_venv_packages.items():
+                venv_updates = []
+                venv_name = Path(venv_path).name
+                
+                for current_pkg, current_version in venv_pkgs.items():
+                    target_version = self._find_target_python_version(current_pkg)
+                    if target_version and target_version != current_version:
+                        venv_updates.append(f"{current_pkg}=={target_version}")
+                
+                if venv_updates:
+                    commands.extend([
+                        "",
+                        f"echo 'Updating virtual environment: {venv_name}...'",
+                        f"source {venv_path}/bin/activate",
+                        f"pip install --upgrade {' '.join(venv_updates)}",
+                        "deactivate"
+                    ])
+                    print(f"  Virtual env {venv_name}: {len(venv_updates)} packages to update")
         
         return commands
     
@@ -256,11 +263,11 @@ class NeuronUpdateScriptGenerator:
         
         return None
     
-    def generate_update_script(self) -> str:
+    def generate_update_script(self, check_venvs: bool = False) -> str:
         """Generate the complete update script."""
         print(f"Generating update script for SDK {self.target_sdk}...")
         
-        current_packages = self.detect_current_packages()
+        current_packages = self.detect_current_packages(check_venvs=check_venvs)
         
         script_lines = [
             "#!/bin/bash",
@@ -283,9 +290,10 @@ class NeuronUpdateScriptGenerator:
             script_lines.extend(["", "echo 'No system packages to update'"])
         
         # Generate Python package updates
+        venv_packages = current_packages['venv_packages'] if check_venvs else None
         python_updates = self.generate_python_package_updates(
             current_packages['python_packages'], 
-            current_packages['venv_packages']
+            venv_packages
         )
         if python_updates:
             script_lines.extend(python_updates)
@@ -310,9 +318,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python3 neuron_update.py                    # Update to latest SDK
-  python3 neuron_update.py --version 2.24.0   # Update to specific SDK version
-  python3 neuron_update.py --output update.sh # Save script to file
+  python3 neuron_update.py                        # Update current environment to latest SDK
+  python3 neuron_update.py --version 2.24.0       # Update to specific SDK version
+  python3 neuron_update.py --check-venvs          # Include virtual environments in update
+  python3 neuron_update.py --output update.sh     # Save script to file
         """
     )
     
@@ -334,6 +343,12 @@ Examples:
         help='Show what would be updated without generating script'
     )
     
+    parser.add_argument(
+        '--check-venvs',
+        action='store_true',
+        help='Include virtual environment packages in update script'
+    )
+    
     args = parser.parse_args()
     
     try:
@@ -342,7 +357,7 @@ Examples:
         
         if args.dry_run:
             print("Dry run mode - analyzing current packages...")
-            current_packages = generator.detect_current_packages()
+            current_packages = generator.detect_current_packages(check_venvs=args.check_venvs)
             
             print(f"\nSystem packages found: {len(current_packages['system_packages'])}")
             for pkg, ver in current_packages['system_packages'].items():
@@ -360,7 +375,7 @@ Examples:
             return 0
         
         # Generate update script
-        script_content = generator.generate_update_script()
+        script_content = generator.generate_update_script(check_venvs=args.check_venvs)
         
         if args.output:
             with open(args.output, 'w') as f:

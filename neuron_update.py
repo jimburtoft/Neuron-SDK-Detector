@@ -73,7 +73,7 @@ class PackageManagerDetector:
 class NeuronUpdateScriptGenerator:
     """Generates update scripts for Neuron packages."""
     
-    def __init__(self, target_sdk: Optional[str] = None, script_mode: bool = False):
+    def __init__(self, target_sdk: Optional[str] = None, script_mode: bool = True):
         """Initialize the update script generator."""
         self.db = VersionDatabase()
         self.db.load_database(quiet=True)
@@ -326,10 +326,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python3 neuron_update.py                        # Update current environment to latest SDK
+  python3 neuron_update.py                        # Update current environment (script mode default)
   python3 neuron_update.py --version 2.24.0       # Update to specific SDK version
   python3 neuron_update.py --check-venvs          # Include virtual environments in update
-  python3 neuron_update.py --script-mode          # Output analysis as bash comments
+  python3 neuron_update.py --verbose              # Show detailed analysis information
   python3 neuron_update.py --output update.sh     # Save script to file
         """
     )
@@ -359,16 +359,16 @@ Examples:
     )
     
     parser.add_argument(
-        '--script-mode',
+        '--verbose',
         action='store_true',
-        help='Output analysis information as bash comments for direct script execution'
+        help='Show detailed analysis information (disables default script mode)'
     )
     
     args = parser.parse_args()
     
     try:
-        # Create script generator
-        generator = NeuronUpdateScriptGenerator(target_sdk=args.version, script_mode=args.script_mode)
+        # Create script generator (script_mode is default, disabled by --verbose)
+        generator = NeuronUpdateScriptGenerator(target_sdk=args.version, script_mode=not args.verbose)
         
         if args.dry_run:
             print("Dry run mode - analyzing current packages...")
@@ -399,7 +399,7 @@ Examples:
             print(f"\nUpdate script saved to: {args.output}")
             print("Run the script with: bash {args.output}")
         else:
-            if not args.script_mode:
+            if args.verbose:
                 print("\n" + "="*50)
                 print("GENERATED UPDATE SCRIPT:")
                 print("="*50)

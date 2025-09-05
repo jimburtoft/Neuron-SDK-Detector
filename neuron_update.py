@@ -172,7 +172,7 @@ class NeuronUpdateScriptGenerator:
                     "fi",
                     "",
                     "sudo apt-get update",
-                    f"sudo apt-get install -y {' '.join(packages_to_update)}"
+                    f"sudo apt-get install -y --allow-change-held-packages {' '.join(packages_to_update)}"
                 ])
             elif package_manager == 'yum':
                 # Add Neuron repository if needed  

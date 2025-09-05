@@ -42,7 +42,8 @@ class TestNeuronUpdate:
             self.test_script_generation,
             self.test_venv_package_updates,
             self.test_apt_vs_yum_commands,
-            self.test_edge_cases
+            self.test_edge_cases,
+            self.test_real_system_scenario
         ]
         
         for test_method in test_methods:
@@ -307,6 +308,70 @@ class TestNeuronUpdate:
         assert non_system is None, "Python package should not map to system package"
         
         print("✅ Edge cases handled correctly")
+    
+    def test_real_system_scenario(self):
+        """Test with real system output from actual AWS Neuron installation."""
+        print("\n11. Testing Real System Scenario (Clean SDK 2.25.0)")
+        
+        # Real system data from user's verbose output
+        real_system_packages = {
+            'aws-neuronx-collectives': '2.27.34.0',
+            'aws-neuronx-dkms': '2.23.9.0',
+            'aws-neuronx-oci-hook': '2.11.42.0',
+            'aws-neuronx-runtime-lib': '2.27.23.0',
+            'aws-neuronx-tools': '2.25.145.0'
+        }
+        
+        real_python_packages = {
+            'libneuronxla': '2.2.8201.0',
+            'neuronx-cc': '2.20.9961.0',
+            'neuronx-distributed': '0.14.18461',
+            'neuronx-distributed-training': '1.5.0',
+            'torch-neuronx': '2.7.0.2.9.9357'
+        }
+        
+        # This system is already on SDK 2.25.0, so updating to 2.25.0 should show no updates
+        generator = NeuronUpdateScriptGenerator(target_sdk='2.25.0')
+        
+        with patch.object(generator, 'detect_current_packages') as mock_detect:
+            mock_detect.return_value = {
+                'system_packages': real_system_packages,
+                'python_packages': real_python_packages,
+                'venv_packages': {},
+                'analysis': {}
+            }
+            
+            with patch.object(generator.pkg_mgr_detector, 'detect_package_manager',
+                             return_value=('apt', 'ubuntu')):
+                
+                script = generator.generate_update_script()
+                
+                # Since system is already on target SDK, should show no updates needed
+                assert 'No system packages to update' in script, "Expected no system updates for current SDK"
+                assert 'No Python packages to update' in script, "Expected no Python updates for current SDK"
+        
+        # Test updating this system to a different SDK version (2.24.0)
+        generator_224 = NeuronUpdateScriptGenerator(target_sdk='2.24.0')
+        
+        with patch.object(generator_224, 'detect_current_packages') as mock_detect:
+            mock_detect.return_value = {
+                'system_packages': real_system_packages,
+                'python_packages': real_python_packages,
+                'venv_packages': {},
+                'analysis': {}
+            }
+            
+            with patch.object(generator_224.pkg_mgr_detector, 'detect_package_manager',
+                             return_value=('apt', 'ubuntu')):
+                
+                script_224 = generator_224.generate_update_script()
+                
+                # Should generate downgrade commands for packages that differ
+                # Note: Some packages might need downgrading from 2.25.0 to 2.24.0
+                assert 'SDK version 2.24.0' in script_224, "Expected target SDK 2.24.0 in script"
+                assert '#!/bin/bash' in script_224, "Expected bash script format"
+        
+        print("✅ Real system scenario tested correctly")
     
     def _print_summary(self):
         """Print test results summary."""

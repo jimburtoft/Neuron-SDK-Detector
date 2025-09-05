@@ -42,7 +42,8 @@ class TestNeuronDetector:
             self.test_unknown_version_closest_detection,
             self.test_no_packages_detected,
             self.test_inf1_vs_inf2_packages,
-            self.test_edge_case_scenarios
+            self.test_edge_case_scenarios,
+            self.test_complex_mixed_installation
         ]
         
         for test_method in test_methods:
@@ -273,6 +274,41 @@ class TestNeuronDetector:
         assert 'torch-neuronx' in mixed_analysis['unknown_packages'], "Expected invalid version to be unknown"
         
         print("✅ Edge case scenarios handled correctly")
+    
+    def test_complex_mixed_installation(self):
+        """Test complex mixed installation from real system data."""
+        print("\n11. Testing Complex Mixed Installation (Real System)")
+        
+        # Real system data showing mixed SDK 2.24.0, 2.22.0, and 2.25.0
+        mixed_packages = {
+            # Main system mostly on SDK 2.24.0
+            'neuronx-cc': '2.19.8089.0',                 # SDK 2.24.0 (anchor)
+            'libneuronxla': '2.2.4410.0',                # SDK 2.24.0
+            'neuronx-distributed': '0.13.14393',         # SDK 2.24.0
+            'torch-neuronx': '2.7.0.2.8.6734',          # SDK 2.24.0
+            
+            # Out-of-date package
+            'tensorboard-plugin-neuronx': '2.6.117.0',   # SDK 2.22.0
+            
+            # Some environments have newer packages
+            'neuron-cc': '1.24.0.0',                     # SDK 2.25.0 (Inf1)
+            'tensorflow-neuron': '2.10.1.2.12.2.0',     # Exists in multiple SDKs
+        }
+        
+        analysis = self.db._analyze_packages_with_anchor(mixed_packages)
+        
+        # With anchor detection, should primarily detect SDK 2.24.0
+        assert '2.24.0' in analysis['detected_sdks'], "Expected SDK 2.24.0 from anchor"
+        assert len(analysis['detected_sdks']['2.24.0']) >= 4, "Expected multiple packages in anchor SDK"
+        
+        # Should also detect other SDKs
+        assert '2.22.0' in analysis['detected_sdks'], "Expected SDK 2.22.0 for tensorboard"
+        
+        # The tensorflow package should be anchored to 2.24.0 due to neuronx-cc anchor
+        if 'tensorflow-neuron' in analysis['detected_sdks']['2.24.0']:
+            print("  ✓ TensorFlow package correctly anchored to SDK 2.24.0")
+        
+        print("✅ Complex mixed installation analyzed correctly")
     
     def _print_summary(self):
         """Print test results summary."""

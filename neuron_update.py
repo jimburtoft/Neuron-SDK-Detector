@@ -73,12 +73,13 @@ class PackageManagerDetector:
 class NeuronUpdateScriptGenerator:
     """Generates update scripts for Neuron packages."""
     
-    def __init__(self, target_sdk: Optional[str] = None):
+    def __init__(self, target_sdk: Optional[str] = None, script_mode: bool = False):
         """Initialize the update script generator."""
         self.db = VersionDatabase()
         self.db.load_database(quiet=True)
         self.detector = PackageDetector()
         self.pkg_mgr_detector = PackageManagerDetector()
+        self.script_mode = script_mode
         
         # Determine target SDK version
         if target_sdk:
@@ -89,7 +90,7 @@ class NeuronUpdateScriptGenerator:
             # Use latest SDK
             self.target_sdk = max(self.db.sdk_data.keys(), key=lambda x: [int(i) for i in x.split('.')])
         
-        print(f"Target SDK version: {self.target_sdk}")
+        self._print_info(f"Target SDK version: {self.target_sdk}")
         
         # Get target SDK data
         target_data = self.db.sdk_data[self.target_sdk]
@@ -98,9 +99,16 @@ class NeuronUpdateScriptGenerator:
         else:
             self.target_packages = target_data
     
+    def _print_info(self, message: str):
+        """Print information with appropriate formatting for script mode."""
+        if self.script_mode:
+            print(f"# {message}")
+        else:
+            print(message)
+    
     def detect_current_packages(self, check_venvs: bool = False) -> Dict[str, Any]:
         """Detect currently installed Neuron packages."""
-        print("Detecting currently installed Neuron packages...")
+        self._print_info("Detecting currently installed Neuron packages...")
         
         system_packages = self.detector.get_system_packages()
         python_packages = self.detector.get_python_packages() 
@@ -129,7 +137,7 @@ class NeuronUpdateScriptGenerator:
         commands = []
         packages_to_update = []
         
-        print(f"Detected package manager: {package_manager} on {distribution}")
+        self._print_info(f"Detected package manager: {package_manager} on {distribution}")
         
         # Find system packages that need updates
         for current_pkg, current_version in current_system_packages.items():
@@ -147,7 +155,7 @@ class NeuronUpdateScriptGenerator:
                     # Specify exact version for system packages
                     versioned_pkg = f"{system_pkg_name}={target_version}"
                     packages_to_update.append(versioned_pkg)
-                    print(f"  System package: {current_pkg} {current_version} -> {target_version}")
+                    self._print_info(f"  System package: {current_pkg} {current_version} -> {target_version}")
         
         if packages_to_update:
             commands.append("echo 'Updating system packages...'")
@@ -197,7 +205,7 @@ class NeuronUpdateScriptGenerator:
             target_version = self._find_target_python_version(current_pkg)
             if target_version and target_version != current_version:
                 python_updates.append(f"{current_pkg}=={target_version}")
-                print(f"  Python package: {current_pkg} {current_version} -> {target_version}")
+                self._print_info(f"  Python package: {current_pkg} {current_version} -> {target_version}")
         
         if python_updates:
             commands.extend([
@@ -225,7 +233,7 @@ class NeuronUpdateScriptGenerator:
                         f"pip install --upgrade {' '.join(venv_updates)}",
                         "deactivate"
                     ])
-                    print(f"  Virtual env {venv_name}: {len(venv_updates)} packages to update")
+                    self._print_info(f"  Virtual env {venv_name}: {len(venv_updates)} packages to update")
         
         return commands
     
@@ -265,7 +273,7 @@ class NeuronUpdateScriptGenerator:
     
     def generate_update_script(self, check_venvs: bool = False) -> str:
         """Generate the complete update script."""
-        print(f"Generating update script for SDK {self.target_sdk}...")
+        self._print_info(f"Generating update script for SDK {self.target_sdk}...")
         
         current_packages = self.detect_current_packages(check_venvs=check_venvs)
         
@@ -321,6 +329,7 @@ Examples:
   python3 neuron_update.py                        # Update current environment to latest SDK
   python3 neuron_update.py --version 2.24.0       # Update to specific SDK version
   python3 neuron_update.py --check-venvs          # Include virtual environments in update
+  python3 neuron_update.py --script-mode          # Output analysis as bash comments
   python3 neuron_update.py --output update.sh     # Save script to file
         """
     )
@@ -349,11 +358,17 @@ Examples:
         help='Include virtual environment packages in update script'
     )
     
+    parser.add_argument(
+        '--script-mode',
+        action='store_true',
+        help='Output analysis information as bash comments for direct script execution'
+    )
+    
     args = parser.parse_args()
     
     try:
         # Create script generator
-        generator = NeuronUpdateScriptGenerator(target_sdk=args.version)
+        generator = NeuronUpdateScriptGenerator(target_sdk=args.version, script_mode=args.script_mode)
         
         if args.dry_run:
             print("Dry run mode - analyzing current packages...")
@@ -384,9 +399,10 @@ Examples:
             print(f"\nUpdate script saved to: {args.output}")
             print("Run the script with: bash {args.output}")
         else:
-            print("\n" + "="*50)
-            print("GENERATED UPDATE SCRIPT:")
-            print("="*50)
+            if not args.script_mode:
+                print("\n" + "="*50)
+                print("GENERATED UPDATE SCRIPT:")
+                print("="*50)
             print(script_content)
         
         return 0

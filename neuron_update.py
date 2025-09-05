@@ -152,10 +152,10 @@ class NeuronUpdateScriptGenerator:
                 # Map package name for system installation
                 system_pkg_name = self._map_to_system_package_name(current_pkg, distribution)
                 if system_pkg_name:
-                    # Specify exact version for system packages
-                    versioned_pkg = f"{system_pkg_name}={target_version}"
-                    packages_to_update.append(versioned_pkg)
-                    self._print_info(f"  System package: {current_pkg} {current_version} -> {target_version}")
+                    # For system packages, use package name without version to get latest available
+                    # This handles cases where repository has version suffixes like -47cc904ea
+                    packages_to_update.append(system_pkg_name)
+                    self._print_info(f"  System package: {current_pkg} {current_version} -> {target_version} (latest available)")
         
         if packages_to_update:
             commands.append("echo 'Updating system packages...'")
@@ -171,7 +171,7 @@ class NeuronUpdateScriptGenerator:
                     "fi",
                     "",
                     "sudo apt-get update",
-                    f"sudo apt-get install -y {' '.join(packages_to_update)}"
+                    f"sudo apt-get upgrade -y {' '.join(packages_to_update)}"
                 ])
             elif package_manager == 'yum':
                 # Add Neuron repository if needed  

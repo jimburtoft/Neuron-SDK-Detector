@@ -234,25 +234,35 @@ class PackageDetector:
         # Example 1: aws-neuronx-collectives/unknown,now 2.27.34.0-ec8cd5e8b amd64 [installed]
         # Example 2: aws-neuronx-collectives/now 2.27.34.0-ec8cd5e8b amd64 [installed,local]
         if '/' in line:
-            parts = line.split('/')
+            parts = line.split('/', 1)  # Split only on first '/'
             if len(parts) >= 2:
                 name = parts[0].strip()
+                after_slash = parts[1].strip()
                 
-                # Extract version from either format
-                repo_status_version_part = parts[1]
-                
-                if ',' in repo_status_version_part:
-                    # Format 1: has comma - "repo,status version architecture [status]"
-                    status_version_part = repo_status_version_part.split(',', 1)[1].strip()
+                # Check if there's a comma before any bracket (repo,status format)
+                bracket_pos = after_slash.find('[')
+                if bracket_pos > 0:
+                    before_bracket = after_slash[:bracket_pos].strip()
+                    # Look for comma in the part before brackets
+                    if ',' in before_bracket:
+                        # Format 1: "repo,status version architecture"
+                        comma_pos = before_bracket.find(',')
+                        version_part = before_bracket[comma_pos + 1:].strip()
+                    else:
+                        # Format 2: "status version architecture"  
+                        version_part = before_bracket.strip()
                 else:
-                    # Format 2: no comma - "status version architecture [status]"
-                    status_version_part = repo_status_version_part.strip()
+                    # No brackets, just use everything after slash
+                    version_part = after_slash
                 
-                # Split on space and find the version part
-                parts_after_slash = status_version_part.split()
+                # Split version part and find the actual version
+                parts_after_status = version_part.split()
                 
-                # Find the version part (contains dots and numbers)
-                for part in parts_after_slash:
+                # Find the version part (contains dots and numbers, skip status words)
+                for part in parts_after_status:
+                    # Skip status words like 'now', 'stable', etc.
+                    if part.lower() in ['now', 'stable', 'testing', 'unstable']:
+                        continue
                     # Version typically contains dots and numbers
                     if '.' in part and any(c.isdigit() for c in part):
                         return name, part

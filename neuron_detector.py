@@ -228,26 +228,34 @@ class PackageDetector:
     
     def _parse_apt_line(self, line: str) -> Optional[tuple]:
         """Parse an apt list line to extract package name and version."""
-        # apt list format: package_name/repo,status version architecture [status]
-        # Example: aws-neuronx-collectives/unknown,now 2.27.34.0-ec8cd5e8b amd64 [installed]
-        if '/' in line and ',' in line:
+        # apt list format can be:
+        # 1. package_name/repo,status version architecture [status] 
+        # 2. package_name/status version architecture [status]
+        # Example 1: aws-neuronx-collectives/unknown,now 2.27.34.0-ec8cd5e8b amd64 [installed]
+        # Example 2: aws-neuronx-collectives/now 2.27.34.0-ec8cd5e8b amd64 [installed,local]
+        if '/' in line:
             parts = line.split('/')
             if len(parts) >= 2:
                 name = parts[0].strip()
                 
-                # Extract version from "repo,status version architecture [status]"
+                # Extract version from either format
                 repo_status_version_part = parts[1]
+                
                 if ',' in repo_status_version_part:
-                    # Split on comma and get everything after it: "status version architecture [status]"
+                    # Format 1: has comma - "repo,status version architecture [status]"
                     status_version_part = repo_status_version_part.split(',', 1)[1].strip()
-                    # Split on space and get the part that looks like a version (contains dots or numbers)
-                    parts_after_comma = status_version_part.split()
-                    
-                    # Find the version part (usually the second element, after status like "now")
-                    for part in parts_after_comma:
-                        # Version typically contains dots and numbers
-                        if '.' in part and any(c.isdigit() for c in part):
-                            return name, part
+                else:
+                    # Format 2: no comma - "status version architecture [status]"
+                    status_version_part = repo_status_version_part.strip()
+                
+                # Split on space and find the version part
+                parts_after_slash = status_version_part.split()
+                
+                # Find the version part (contains dots and numbers)
+                for part in parts_after_slash:
+                    # Version typically contains dots and numbers
+                    if '.' in part and any(c.isdigit() for c in part):
+                        return name, part
         return None
     
     def _is_neuron_python_package(self, package_name: str) -> bool:

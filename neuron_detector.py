@@ -210,8 +210,8 @@ class PackageDetector:
             name = parts[1]
             version = parts[2]
             
-            # Only include installed packages
-            if status.startswith('ii'):
+            # Only include installed packages (ii = installed, hi = hold+installed)
+            if status.startswith('ii') or status.startswith('hi'):
                 return name, version
         
         return None

@@ -210,8 +210,8 @@ class PackageDetector:
             name = parts[1]
             version = parts[2]
             
-            # Only include installed packages
-            if status.startswith('ii'):
+            # Only include installed packages (ii = installed, hi = hold+installed)
+            if status.startswith('ii') or status.startswith('hi'):
                 return name, version
         
         return None
@@ -228,26 +228,44 @@ class PackageDetector:
     
     def _parse_apt_line(self, line: str) -> Optional[tuple]:
         """Parse an apt list line to extract package name and version."""
-        # apt list format: package_name/repo,status version architecture [status]
-        # Example: aws-neuronx-collectives/unknown,now 2.27.34.0-ec8cd5e8b amd64 [installed]
-        if '/' in line and ',' in line:
-            parts = line.split('/')
+        # apt list format can be:
+        # 1. package_name/repo,status version architecture [status] 
+        # 2. package_name/status version architecture [status]
+        # Example 1: aws-neuronx-collectives/unknown,now 2.27.34.0-ec8cd5e8b amd64 [installed]
+        # Example 2: aws-neuronx-collectives/now 2.27.34.0-ec8cd5e8b amd64 [installed,local]
+        if '/' in line:
+            parts = line.split('/', 1)  # Split only on first '/'
             if len(parts) >= 2:
                 name = parts[0].strip()
+                after_slash = parts[1].strip()
                 
-                # Extract version from "repo,status version architecture [status]"
-                repo_status_version_part = parts[1]
-                if ',' in repo_status_version_part:
-                    # Split on comma and get everything after it: "status version architecture [status]"
-                    status_version_part = repo_status_version_part.split(',', 1)[1].strip()
-                    # Split on space and get the part that looks like a version (contains dots or numbers)
-                    parts_after_comma = status_version_part.split()
-                    
-                    # Find the version part (usually the second element, after status like "now")
-                    for part in parts_after_comma:
-                        # Version typically contains dots and numbers
-                        if '.' in part and any(c.isdigit() for c in part):
-                            return name, part
+                # Check if there's a comma before any bracket (repo,status format)
+                bracket_pos = after_slash.find('[')
+                if bracket_pos > 0:
+                    before_bracket = after_slash[:bracket_pos].strip()
+                    # Look for comma in the part before brackets
+                    if ',' in before_bracket:
+                        # Format 1: "repo,status version architecture"
+                        comma_pos = before_bracket.find(',')
+                        version_part = before_bracket[comma_pos + 1:].strip()
+                    else:
+                        # Format 2: "status version architecture"  
+                        version_part = before_bracket.strip()
+                else:
+                    # No brackets, just use everything after slash
+                    version_part = after_slash
+                
+                # Split version part and find the actual version
+                parts_after_status = version_part.split()
+                
+                # Find the version part (contains dots and numbers, skip status words)
+                for part in parts_after_status:
+                    # Skip status words like 'now', 'stable', etc.
+                    if part.lower() in ['now', 'stable', 'testing', 'unstable']:
+                        continue
+                    # Version typically contains dots and numbers
+                    if '.' in part and any(c.isdigit() for c in part):
+                        return name, part
         return None
     
     def _is_neuron_python_package(self, package_name: str) -> bool:

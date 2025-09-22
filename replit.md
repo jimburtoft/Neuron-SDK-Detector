@@ -1,114 +1,91 @@
-# Overview
+# AWS Neuron SDK Management Suite
 
-✅ **COMPLETED**: AWS Neuron SDK Version Detection Tool is a fully functional Python CLI application that identifies and analyzes AWS Neuron SDK installations across different environments. The tool successfully:
+## Overview
 
-- 🔍 **Detects System Packages**: Uses apt/dpkg/rpm to find installed AWS Neuron system packages
-- 🐍 **Scans Python Environments**: Identifies Neuron packages in current and virtual environments
-- 📊 **Compares Package Versions**: Matches detected packages against comprehensive SDK database with 37+ versions
-- ⚠️ **Identifies Mixed Installations**: Detects when packages from multiple SDK versions are present
-- ❌ **Highlights Unknown Versions**: Emphasizes package versions not found in any known SDK with closest version suggestions
-- 📁 **Multi-Environment Support**: Scans virtual environments in `/opt` directory with selective targeting
-- 🤖 **Multiple Output Modes**: Simple, verbose, script-friendly, and information modes
-- 📅 **Release Date Tracking**: Shows SDK release dates for temporal context
-- 🎯 **Visual Indicators**: Emphasis characters for out-of-date and unknown packages
-- 🔧 **Script Integration**: Machine-readable output for automation and CI/CD pipelines
-- 📈 **Database Management**: Auto-updating version database with GitHub integration
+The AWS Neuron SDK Management Suite is a comprehensive Python CLI toolset designed to detect, analyze, and update AWS Neuron SDK packages across system and virtual environments. The project addresses the complexity of managing the AWS Neuron SDK, which consists of multiple system and Python packages with different versioning schemes across various SDK releases.
 
-The tool addresses the complexity of AWS Neuron SDK's multi-package architecture where different components may have different version numbers within the same SDK release.
+The suite provides three main tools:
+1. **Detection Tool** (`neuron_detector.py`) - Identifies installed Neuron packages and matches them to SDK releases
+2. **Update Script Generator** (`neuron_update.py`) - Creates intelligent update scripts for specific SDK versions
+3. **Database Management** (`neuron_database_updater.py`) - Scrapes AWS documentation to maintain version databases
 
-# User Preferences
+## User Preferences
 
 Preferred communication style: Simple, everyday language.
 
-# System Architecture
+## System Architecture
 
-## Core Components
+### Core Components
 
-The application follows a two-script architecture with clear separation of functionality:
+**Package Detection Engine**
+- Multi-source package detection supporting both system packages (apt/dpkg/rpm) and Python packages (pip)
+- Virtual environment scanning with selective targeting in `/opt` directory
+- Anchor-based detection using neuronx-cc/neuron-cc versions as authoritative SDK indicators
+- Mixed installation detection to identify packages from multiple SDK versions
 
-**Standalone Detection Script (`neuron_detector.py`)**
-- Single-file architecture containing all detection functionality
-- Integrated package detection for system and Python environments  
-- Built-in version database management with GitHub download capability
-- Command-line interface with simple and verbose output modes
-- Downloads `neuron_versions.json` from GitHub if not found locally
-- Caches database locally for future use
+**Version Database System**
+- JSON-based package version database (`neuron_versions.json`) containing 37+ SDK versions
+- Auto-download mechanism from GitHub when database is not found locally
+- Documentation scraping system using trafilatura for extracting package versions from AWS Neuron documentation
+- Local caching for offline use
 
-**Database Updater Script (`neuron_database_updater.py`)**
-- Dedicated scraping and database maintenance functionality
-- Scrapes AWS Neuron documentation for package version information
-- Extracts data from current and historical release pages
-- Uses trafilatura for content extraction and requests for HTTP handling
-- Builds comprehensive JSON database with all SDK versions
-- Independent operation - can update database without affecting detection
+**Update Script Generation**
+- Package manager auto-detection (apt vs yum) with proper repository setup
+- Intelligent script generation supporting both upgrades and downgrades
+- Version wildcard handling for repository version suffixes
+- Held package detection and management
+- Virtual environment update support
 
-## Data Flow Architecture
+**CLI Interface**
+- Multiple output modes: simple, verbose, script-friendly, and information modes
+- Visual indicators for out-of-date and unknown packages
+- Direct script execution capability (`python3 neuron_update.py | bash`)
 
-1. **Detection Phase**: Package detector scans system and Python environments
-2. **Database Loading**: Version database loads from local file or downloads from remote source
-3. **Analysis Phase**: Detected packages are matched against known SDK releases
-4. **Output Generation**: Results formatted based on verbosity settings
+### Data Architecture
 
-## Error Handling Strategy
+**Package Classification**
+- System packages: Neuron packages installed via system package managers
+- Python packages: Neuron packages installed via pip in various environments
+- Known package prefixes for both system and Python package detection
 
-- Graceful degradation when database is unavailable
-- Fallback to local files when remote resources fail
-- Mixed installation detection for inconsistent environments
-- Unknown version warnings for unrecognized packages
+**Version Matching Algorithm**
+- SDK version detection based on installed package versions
+- Closest version detection for unknown packages
+- Mixed installation analysis across multiple SDK versions
 
-## Command-Line Interface Design
+**Database Schema**
+- Hierarchical structure: SDK version → Platform (Inf1/Inf2/Trn1) → Package → Version
+- Release date tracking for chronological analysis
+- Platform-specific package version mapping
 
-Simple default behavior with progressive disclosure through optional flags:
-- **Default**: Simple version output with release dates
-- **`--verbose`**: Detailed package information and SDK breakdowns
-- **`--check-venvs [VENV_NAME]`**: Extended environment scanning with optional single environment targeting
-- **`--version`**: Script-friendly version output (exits with error on mixed installations)
-- **`--info [--verbose]`**: Latest SDK information and update instructions, optionally with full version history
-- **`--debug`**: Comprehensive package detection troubleshooting
-- **`--data-file PATH`**: Custom version database file location
+### Testing Framework
 
-## Latest Features (Added)
+**Comprehensive Test Suite**
+- Functional tests based on real-world AWS Neuron system examples
+- Package detection regression tests
+- Update script generation validation
+- Mock-based testing for system command interactions
 
-### Enhanced Output Features
-- **Closest Version Detection**: Unknown packages show nearest known versions above and below
-- **Visual Emphasis**: ⚠️ for out-of-date packages, ❌ for unknown packages
-- **Release Date Integration**: All SDK versions display with their release dates
-- **Individual Environment Logic**: Each virtual environment assessed independently for mixed installations
+## External Dependencies
 
-### Script Integration Features
-- **Version Flag**: Machine-readable SDK version output for automation
-- **Error Handling**: Proper exit codes for script integration (0=success, 1=error/mixed)
-- **Selective Environment Scanning**: Target specific virtual environments by name
+### Python Libraries
+- **requests** - HTTP client for downloading version database and documentation scraping
+- **trafilatura** - Web content extraction for AWS documentation scraping
+- **json** - Native JSON handling for version database management
+- **subprocess** - System command execution for package detection
+- **pathlib** - Modern path handling for file operations
 
-### Information and Maintenance
-- **Info Mode**: Display latest SDK version, database stats, and update instructions
-- **Comprehensive Version History**: Chronological listing of all known SDK versions with dates
-- **Database Auto-Download**: Automatic retrieval from GitHub with local caching
+### System Dependencies
+- **Package Managers**: apt-get/apt (Ubuntu/Debian), yum (RHEL/Amazon Linux)
+- **Package Query Tools**: dpkg, rpm for installed package detection
+- **System Commands**: pip, python3 for Python package management
 
-# External Dependencies
+### External Services
+- **GitHub Repository** - Version database hosting and distribution
+- **AWS Neuron Documentation** - Source for package version information scraping
+- **Neuron Package Repositories** - apt.repos.neuron.amazonaws.com for package installation
 
-## Third-Party Python Libraries
-
-**trafilatura** - Web content extraction library for parsing AWS documentation pages with intelligent content detection and cleanup.
-
-**requests** - HTTP client library for downloading version database and scraping documentation with session management and timeout handling.
-
-## System Dependencies
-
-**dpkg** - Debian package management system used for detecting installed system packages on Ubuntu/Debian systems.
-
-**subprocess** - Python standard library for executing system commands and parsing dpkg output.
-
-## External Data Sources
-
-**AWS Neuron Documentation** - Primary source for package version information, scraped from:
-- Current release page: `awsdocs-neuron.readthedocs-hosted.com/en/latest/release-notes/releasecontent.html`
-- Previous releases page: `awsdocs-neuron.readthedocs-hosted.com/en/latest/release-notes/prev/content.html`
-
-**GitHub Repository** - Default location for version database JSON file hosting at `raw.githubusercontent.com/jimburtoft/Neuron-What-Am-I/main/neuron_versions.json`.
-
-## Environment Dependencies
-
-**Virtual Environment Support** - Scans Python virtual environments in `/opt` directory structure commonly used in AWS EC2 instances and DLAMI installations.
-
-**Ubuntu/Debian Systems** - Primary target platform using apt/dpkg package management, specifically tested on Ubuntu 22 LTS systems.
+### Operating System Support
+- **Ubuntu/Debian** - Primary support with apt package manager
+- **RHEL/Amazon Linux** - Secondary support with yum package manager
+- **Virtual Environment Detection** - `/opt` directory scanning for Neuron virtual environments

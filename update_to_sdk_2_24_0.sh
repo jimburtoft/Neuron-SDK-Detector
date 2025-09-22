@@ -23,7 +23,6 @@ sudo apt install --only-upgrade -y --allow-downgrades --allow-change-held-packag
   aws-neuronx-k8-plugin=2.26.7.0* \
   aws-neuronx-k8-scheduler=2.26.7.0* \
   aws-neuronx-oci-hook=2.10.56.0* \
-  aws-neuronx-runtime-discovery=2.9* \
   aws-neuronx-runtime-lib=2.26.42.0* \
   aws-neuronx-tools=2.24.54.0*
 
@@ -60,7 +59,6 @@ echo ""
 #   aws-neuronx-k8-plugin=2.26.7.0* \
 #   aws-neuronx-k8-scheduler=2.26.7.0* \
 #   aws-neuronx-oci-hook=2.10.56.0* \
-#   aws-neuronx-runtime-discovery=2.9* \
 #   aws-neuronx-runtime-lib=2.26.42.0* \
 #   aws-neuronx-tools=2.24.54.0*
 

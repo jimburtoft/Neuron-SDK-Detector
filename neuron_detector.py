@@ -369,7 +369,7 @@ class VersionDatabase:
                     if not quiet:
                         print(f"Downloaded database with {len(self.sdk_data)} SDK versions")
                     return True
-            elif response.status_code == 200:
+            elif response.ok:  # Any 2xx response
                 # New data available
                 self.sdk_data = response.json()
                 self._build_package_map()
@@ -384,6 +384,7 @@ class VersionDatabase:
                 return True
             else:
                 response.raise_for_status()
+                return False  # Ensure we return something even after raise_for_status
                 
         except Exception as e:
             # Network error - fall back to local if available

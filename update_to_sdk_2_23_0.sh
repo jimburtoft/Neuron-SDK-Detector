@@ -26,21 +26,33 @@ sudo apt install --only-upgrade -y --allow-downgrades --allow-change-held-packag
   aws-neuronx-runtime-lib=2.25.57.0* \
   aws-neuronx-tools=2.23.9.0*
 
-# Python packages - pip naturally skips uninstalled packages with --upgrade
+# Python packages - only upgrade packages that are already installed
 echo "Updating Python packages (if installed)..."
-pip install --upgrade \
-  aws-neuronx-runtime-discovery==2.9 \
-  libneuronxla==2.2.3493.0 \
-  neuronx_cc==2.18.121.0 \
-  neuronx_cc_stubs==2.18.121.0 \
-  neuronx_distributed==0.12.12111 \
-  neuronx_distributed_inference==0.3.5591 \
-  tensorboard_plugin_neuronx==2.0.670.0 \
-  tensorflow_model_server_neuronx==2.8.4.2.12.2.0 \
-  tensorflow_neuronx==2.10.1.2.1.0 \
-  torch-neuronx==2.6.0.2.7.5413 \
-  torch_xla==2.1.6 \
-  transformers_neuronx==0.13.798
+
+# Check which packages are installed and upgrade only those
+declare -a packages=(
+  "aws-neuronx-runtime-discovery==2.9"
+  "libneuronxla==2.2.3493.0"
+  "neuronx_cc==2.18.121.0"
+  "neuronx_cc_stubs==2.18.121.0"
+  "neuronx_distributed==0.12.12111"
+  "neuronx_distributed_inference==0.3.5591"
+  "tensorboard_plugin_neuronx==2.0.670.0"
+  "tensorflow_model_server_neuronx==2.8.4.2.12.2.0"
+  "tensorflow_neuronx==2.10.1.2.1.0"
+  "torch-neuronx==2.6.0.2.7.5413"
+  "torch_xla==2.1.6"
+  "transformers_neuronx==0.13.798"
+)
+
+for package_spec in "${packages[@]}"; do
+  package_name="${package_spec%%==*}"
+  # Check if package is installed (pip show returns 0 if installed)
+  if pip show "$package_name" >/dev/null 2>&1; then
+    echo "Upgrading $package_name..."
+    pip install --upgrade "$package_spec"
+  fi
+done
 
 echo ""
 echo "AWS Neuron SDK 2.23.0 update complete!"

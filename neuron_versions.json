@@ -1,4 +1,83 @@
 {
+  "2.26.0": {
+    "platforms": {
+      "Inf1": {
+        "aws-neuronx-dkms": "2.24.7.0",
+        "aws-neuronx-k8-plugin": "2.28.4.0",
+        "aws-neuronx-k8-scheduler": "2.28.4.0",
+        "aws-neuronx-oci-hook": "2.12.36.0",
+        "aws-neuronx-tools": "2.26.14.0",
+        "mx_neuron": "1.8.0.2.4.147.0",
+        "mxnet_neuron": "1.5.1.1.10.0.0",
+        "neuron-cc": "1.24.0.0",
+        "neuronperf": "1.8.93.0",
+        "tensorflow-model-server-neuronx": "2.10.1.2.12.2.0",
+        "tensorflow-neuron": "2.10.1.2.12.2.0",
+        "torch-neuron": "1.13.1.2.11.13.0"
+      },
+      "Inf2": {
+        "aws-neuronx-collectives": "2.28.27.0",
+        "aws-neuronx-dkms": "2.24.7.0",
+        "aws-neuronx-gpsimd-customop-lib": "0.18.0.0",
+        "aws-neuronx-gpsimd-tools": "0.18.0.0",
+        "aws-neuronx-k8-plugin": "2.28.4.0",
+        "aws-neuronx-k8-scheduler": "2.28.4.0",
+        "aws-neuronx-oci-hook": "2.12.36.0",
+        "aws-neuronx-runtime-discovery": "2.9",
+        "aws-neuronx-runtime-lib": "2.28.23.0",
+        "aws-neuronx-tools": "2.26.14.0",
+        "jax_neuronx": "0.6.2.1.0.6446",
+        "libneuronxla": "2.2.12677.0",
+        "neuronx-cc": "2.21.18209.0",
+        "tensorboard-plugin-neuronx": "2.0.837.0",
+        "tensorflow-model-server-neuronx": "2.10.1.2.12.2.0",
+        "tensorflow-neuronx": "2.10.1.2.1.0",
+        "torch-neuronx": "2.8.0.2.10.13553",
+        "transformers-neuronx": "0.13.1315"
+      },
+      "Trn1": {
+        "aws-neuronx-collectives": "2.28.27.0",
+        "aws-neuronx-dkms": "2.24.7.0",
+        "aws-neuronx-gpsimd-customop-lib": "0.18.0.0",
+        "aws-neuronx-gpsimd-tools": "0.18.0.0",
+        "aws-neuronx-k8-plugin": "2.28.4.0",
+        "aws-neuronx-k8-scheduler": "2.28.4.0",
+        "aws-neuronx-oci-hook": "2.12.36.0",
+        "aws-neuronx-runtime-discovery": "2.9",
+        "aws-neuronx-runtime-lib": "2.28.23.0",
+        "aws-neuronx-tools": "2.26.14.0",
+        "jax_neuronx": "0.6.2.1.0.6446",
+        "libneuronxla": "2.2.12677.0",
+        "neuronx-cc": "2.21.18209.0",
+        "neuronx_distributed": "0.15.22404",
+        "neuronx_distributed_training": "1.6.0",
+        "neuronx_distributed_inference": "0.6.10598",
+        "tensorboard-plugin-neuronx": "2.0.837.0",
+        "tensorflow-model-server-neuronx": "2.10.1.2.12.2.0",
+        "tensorflow-neuronx": "2.10.1.2.1.0",
+        "torch-neuronx": "2.8.0.2.10.13553",
+        "transformers-neuronx": "0.13.1315"
+      },
+      "Trn2": {
+        "aws-neuronx-collectives": "2.28.27.0",
+        "aws-neuronx-dkms": "2.24.7.0",
+        "aws-neuronx-gpsimd-customop-lib": "0.18.0.0",
+        "aws-neuronx-gpsimd-tools": "0.18.0.0",
+        "aws-neuronx-k8-plugin": "2.28.4.0",
+        "aws-neuronx-k8-scheduler": "2.28.4.0",
+        "aws-neuronx-oci-hook": "2.12.36.0",
+        "aws-neuronx-runtime-discovery": "2.9",
+        "aws-neuronx-runtime-lib": "2.28.23.0",
+        "aws-neuronx-tools": "2.26.14.0",
+        "neuronx-cc": "2.21.18209.0",
+        "neuronx_distributed": "0.15.22404",
+        "neuronx_distributed_training": "1.6.0",
+        "neuronx_distributed_inference": "0.6.10598",
+        "torch-neuronx": "2.8.0.2.10.13553"
+      }
+    },
+    "release_date": "09/18/2025"
+  },
   "2.10.0": {
     "platforms": {
       "Inf1": {
@@ -2083,7 +2162,7 @@
         "torch-neuronx": "2.7.0.2.9.9357"
       }
     },
-    "release_date": "07/31/2025"
+    "release_date": "TBD"
   },
   "2.3.0": {
     "platforms": {

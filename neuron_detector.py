@@ -363,6 +363,12 @@ class VersionDatabase:
                     # 304 but no local data - weird state, fall back to download
                     response = requests.get(self.DEFAULT_DATABASE_URL, timeout=30)
                     response.raise_for_status()
+                    self.sdk_data = response.json()
+                    self._build_package_map()
+                    self.save_database(self.sdk_data, quiet=True)
+                    if not quiet:
+                        print(f"Downloaded database with {len(self.sdk_data)} SDK versions")
+                    return True
             elif response.status_code == 200:
                 # New data available
                 self.sdk_data = response.json()
@@ -460,7 +466,7 @@ class VersionDatabase:
                     key = f"{norm_name}@{version}"
                     if key in self.package_to_sdk_map:
                         matching_sdks = self.package_to_sdk_map[key]
-                        return max(matching_sdks, key=lambda x: [int(i) for i in x.split('.')])
+                        return max(matching_sdks, key=lambda x: [int(i) for i in (x or '0.0.0').split('.')])
         
         return None
     
@@ -596,6 +602,7 @@ Examples:
   %(prog)s --info --verbose          # Show all known SDK versions
   %(prog)s --data-file custom.json   # Use custom version database file
   %(prog)s --debug                   # Show debug information during detection
+  %(prog)s --offline                 # Skip network checks, use local database only
         """
     )
     

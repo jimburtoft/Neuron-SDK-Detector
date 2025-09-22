@@ -302,43 +302,95 @@ class VersionDatabase:
         self.sdk_data = {}
         self.package_to_sdk_map = {}
     
-    def load_database(self, quiet=False) -> bool:
+    def load_database(self, quiet=False, offline=False) -> bool:
         """Load version database from file or download if needed."""
         local_path = Path(self.database_path)
         
-        # Try to load from local file first
-        if local_path.exists():
+        # In offline mode, only try to load local file
+        if offline:
+            if local_path.exists():
+                try:
+                    with open(local_path, 'r') as f:
+                        self.sdk_data = json.load(f)
+                    self._build_package_map()
+                    if not quiet:
+                        print(f"Loaded database with {len(self.sdk_data)} SDK versions (offline mode)")
+                    return True
+                except Exception as e:
+                    if not quiet:
+                        print(f"Error loading local database in offline mode: {e}")
+                    return False
+            else:
+                if not quiet:
+                    print("Error: No local database found and offline mode enabled")
+                return False
+        
+        # Online mode: Check for updates every run
+        local_exists = local_path.exists()
+        local_data = None
+        
+        # Load existing local data if available
+        if local_exists:
             try:
                 with open(local_path, 'r') as f:
-                    self.sdk_data = json.load(f)
-                self._build_package_map()
-                if not quiet:
-                    print(f"Loaded database with {len(self.sdk_data)} SDK versions")
-                return True
+                    local_data = json.load(f)
             except Exception as e:
                 if not quiet:
-                    print(f"Error loading local database: {e}")
+                    print(f"Warning: Could not read local database: {e}")
+                local_data = None
         
-        # Try to download from GitHub
+        # Always check for updates (unless offline)
         try:
-            if not quiet:
-                print("Downloading database from GitHub...")
-            response = requests.get(self.DEFAULT_DATABASE_URL, timeout=30)
-            response.raise_for_status()
+            # Use conditional request headers if we have local data
+            headers = {}
+            if local_data and local_exists:
+                # Get local file modification time for If-Modified-Since
+                mtime = local_path.stat().st_mtime
+                import time
+                headers['If-Modified-Since'] = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime(mtime))
             
-            self.sdk_data = response.json()
-            self._build_package_map()
+            response = requests.get(self.DEFAULT_DATABASE_URL, headers=headers, timeout=30)
             
-            # Save locally for future use
-            self.save_database(self.sdk_data, quiet=quiet)
-            if not quiet:
-                print(f"Downloaded database with {len(self.sdk_data)} SDK versions")
-            return True
-            
+            if response.status_code == 304:
+                # Not modified - use local data
+                if local_data:
+                    self.sdk_data = local_data
+                    self._build_package_map()
+                    if not quiet:
+                        print(f"Database is up-to-date ({len(self.sdk_data)} SDK versions)")
+                    return True
+                else:
+                    # 304 but no local data - weird state, fall back to download
+                    response = requests.get(self.DEFAULT_DATABASE_URL, timeout=30)
+                    response.raise_for_status()
+            elif response.status_code == 200:
+                # New data available
+                self.sdk_data = response.json()
+                self._build_package_map()
+                
+                # Save locally for future use
+                self.save_database(self.sdk_data, quiet=True)  # Don't double-print save message
+                if not quiet:
+                    if local_exists:
+                        print(f"Database updated! Downloaded {len(self.sdk_data)} SDK versions")
+                    else:
+                        print(f"Downloaded database with {len(self.sdk_data)} SDK versions")
+                return True
+            else:
+                response.raise_for_status()
+                
         except Exception as e:
-            if not quiet:
-                print(f"Error downloading database: {e}")
-            return False
+            # Network error - fall back to local if available
+            if local_data:
+                if not quiet:
+                    print(f"Network error ({e}), using local database with {len(local_data)} SDK versions")
+                self.sdk_data = local_data
+                self._build_package_map()
+                return True
+            else:
+                if not quiet:
+                    print(f"Error: Could not download database and no local copy available: {e}")
+                return False
     
     def save_database(self, data: Dict[str, Any], quiet=False) -> None:
         """Save database to local file."""
@@ -584,6 +636,12 @@ Examples:
         action='store_true',
         help='Display latest SDK info and update instructions'
     )
+    
+    parser.add_argument(
+        '--offline',
+        action='store_true',
+        help='Skip network checks and use local database only'
+    )
 
     args = parser.parse_args()
 
@@ -595,7 +653,7 @@ Examples:
         
         # Load version database (quiet mode for --version flag)
         quiet_mode = args.version
-        if not db.load_database(quiet=quiet_mode):
+        if not db.load_database(quiet=quiet_mode, offline=args.offline):
             if not quiet_mode:
                 print("Error: Could not load or download version database")
             return 1

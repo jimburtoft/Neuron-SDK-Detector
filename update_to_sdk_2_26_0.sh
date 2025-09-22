@@ -29,6 +29,7 @@ sudo apt install --only-upgrade -y --allow-downgrades --allow-change-held-packag
 # Python packages - pip naturally skips uninstalled packages with --upgrade
 echo "Updating Python packages (if installed)..."
 pip install --upgrade --extra-index-url=https://pip.repos.neuron.amazonaws.com \
+  aws-neuronx-runtime-discovery==2.9 \
   libneuronxla==2.2.12677.0 \
   neuronx-cc==2.21.18209.0 \
   neuronx-distributed==0.15.22404 \
@@ -69,6 +70,7 @@ echo ""
 
 # echo "Fresh installation - installing all SDK 2.26.0 Python packages..."
 # pip install --extra-index-url=https://pip.repos.neuron.amazonaws.com \
+#   aws-neuronx-runtime-discovery==2.9 \
 #   libneuronxla==2.2.12677.0 \
 #   neuronx-cc==2.21.18209.0 \
 #   neuronx-distributed==0.15.22404 \

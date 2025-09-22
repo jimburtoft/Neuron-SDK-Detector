@@ -234,16 +234,11 @@ class PackageDetector:
         # Example 1: aws-neuronx-collectives/unknown,now 2.27.34.0-ec8cd5e8b amd64 [installed]
         # Example 2: aws-neuronx-collectives/now 2.27.34.0-ec8cd5e8b amd64 [installed,local]
         if '/' in line:
-<<<<<<< HEAD
             parts = line.split('/', 1)  # Split only on first '/'
-=======
-            parts = line.split('/')
->>>>>>> 7b08061 (Improve apt package parsing to detect Neuron SDK versions)
             if len(parts) >= 2:
                 name = parts[0].strip()
                 after_slash = parts[1].strip()
                 
-<<<<<<< HEAD
                 # Check if there's a comma before any bracket (repo,status format)
                 bracket_pos = after_slash.find('[')
                 if bracket_pos > 0:
@@ -268,23 +263,6 @@ class PackageDetector:
                     # Skip status words like 'now', 'stable', etc.
                     if part.lower() in ['now', 'stable', 'testing', 'unstable']:
                         continue
-=======
-                # Extract version from either format
-                repo_status_version_part = parts[1]
-                
-                if ',' in repo_status_version_part:
-                    # Format 1: has comma - "repo,status version architecture [status]"
-                    status_version_part = repo_status_version_part.split(',', 1)[1].strip()
-                else:
-                    # Format 2: no comma - "status version architecture [status]"
-                    status_version_part = repo_status_version_part.strip()
-                
-                # Split on space and find the version part
-                parts_after_slash = status_version_part.split()
-                
-                # Find the version part (contains dots and numbers)
-                for part in parts_after_slash:
->>>>>>> 7b08061 (Improve apt package parsing to detect Neuron SDK versions)
                     # Version typically contains dots and numbers
                     if '.' in part and any(c.isdigit() for c in part):
                         return name, part

@@ -4,18 +4,19 @@
 
 The AWS Neuron SDK Management Suite is a comprehensive Python CLI toolset designed to detect, analyze, and update AWS Neuron SDK packages across system and virtual environments. The project addresses the complexity of managing the AWS Neuron SDK, which consists of multiple system and Python packages with different versioning schemes across various SDK releases.
 
-The suite provides three main tools:
+The suite provides two main tools:
 1. **Detection Tool** (`neuron_detector.py`) - Identifies installed Neuron packages and matches them to SDK releases
-2. **Update Script Generator** (`neuron_update.py`) - Creates intelligent update scripts for specific SDK versions
+2. **Pre-built Update Scripts** (`update_to_sdk_*.sh`) - Ready-to-use shell scripts for upgrading to specific SDK versions
 3. **Database Management** (`neuron_database_updater.py`) - Scrapes AWS documentation to maintain version databases
 
 ## Recent Changes
 
 **November 1, 2025:**
 - Added SDK 2.26.1 to version database (39 total SDK versions now)
+- Removed Python update script generator (neuron_update.py) - replaced with pre-built shell scripts
+- Project now provides ready-to-use update shell scripts (update_to_sdk_2_23_0.sh through update_to_sdk_2_26_1.sh)
 - Fixed pip upgrade logic in all update scripts - now only upgrades installed packages (doesn't install new ones)
 - Added aws-neuronx-runtime-discovery to Python packages section in all update scripts
-- Created update_to_sdk_2_26_1.sh for the new point release
 - Verified shared component detection: packages that exist in both 2.26.0 and 2.26.1 (like aws-neuronx-runtime-discovery==2.9) won't trigger false mixed installation warnings when anchor package (neuronx-cc) points to 2.26.1
 
 ## User Preferences
@@ -38,12 +39,13 @@ Preferred communication style: Simple, everyday language.
 - Documentation scraping system using trafilatura for extracting package versions from AWS Neuron documentation
 - Local caching for offline use
 
-**Update Script Generation**
-- Package manager auto-detection (apt vs yum) with proper repository setup
-- Intelligent script generation supporting both upgrades and downgrades
+**Pre-built Update Scripts**
+- Ready-to-use shell scripts for SDK versions 2.23.0 through 2.26.1
+- Only upgrades packages that are already installed (safe updates)
+- Uses apt --only-upgrade for system packages and pip existence checks for Python packages
 - Version wildcard handling for repository version suffixes
 - Held package detection and management
-- Virtual environment update support
+- Optional fresh installation mode (commented sections)
 
 **CLI Interface**
 - Multiple output modes: simple, verbose, script-friendly, and information modes

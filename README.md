@@ -20,7 +20,8 @@ The AWS Neuron SDK consists of multiple system packages and Python packages, eac
 - **Anchor-Based Detection**: Uses neuronx-cc/neuron-cc versions as authoritative SDK indicators
 - **Mixed Installation Detection**: Identifies when packages from multiple SDK versions are present
 - **Unknown Version Warning**: Highlights packages with versions not found in any known SDK
-- **Multiple Output Modes**: Simple, verbose, script-friendly, and information modes
+- **Multiple Output Modes**: Simple, verbose, script-friendly, information, and support modes
+- **Support Ticket Output**: Copy-paste friendly format with system info and package lists
 - **Visual Indicators**: Emphasis characters for out-of-date and unknown packages
 
 ### Update Shell Scripts
@@ -120,6 +121,9 @@ python3 neuron_detector.py --version
 # Get SDK information and update instructions
 python3 neuron_detector.py --info
 
+# Support ticket information (copy-paste friendly)
+python3 neuron_detector.py --support
+
 # Debug package detection issues
 python3 neuron_detector.py --debug
 
@@ -216,6 +220,33 @@ Python Packages (pip):
   ✓ neuronx-cc = 2.20.15193.0
   ✓ torch-neuronx = 2.7.0.2.9.11854
   ✓ transformers-neuronx = 0.12.1248
+```
+
+### Support Ticket Output
+```
+================================================================================
+AWS NEURON SUPPORT INFORMATION
+================================================================================
+
+## Product Name
+$ cat /sys/devices/virtual/dmi/id/product_name
+inf2.xlarge
+
+## System Packages
+$ apt list | grep neuron | grep installed
+aws-neuronx-collectives/unknown,now 2.28.27.0 amd64 [installed]
+aws-neuronx-dkms/unknown,now 2.24.7.0 amd64 [installed]
+aws-neuronx-tools/unknown,now 2.26.14.0 amd64 [installed]
+
+## Python Packages
+$ pip3 list | grep neuron
+neuronx-cc                     2.21.33363.0
+torch-neuronx                  2.8.0.2.10.16998
+transformers-neuronx           0.13.1315
+
+================================================================================
+END OF SUPPORT INFORMATION
+================================================================================
 ```
 
 ### Update Script Output

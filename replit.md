@@ -9,6 +9,15 @@ The suite provides three main tools:
 2. **Update Script Generator** (`neuron_update.py`) - Creates intelligent update scripts for specific SDK versions
 3. **Database Management** (`neuron_database_updater.py`) - Scrapes AWS documentation to maintain version databases
 
+## Recent Changes
+
+**November 1, 2025:**
+- Added SDK 2.26.1 to version database (39 total SDK versions now)
+- Fixed pip upgrade logic in all update scripts - now only upgrades installed packages (doesn't install new ones)
+- Added aws-neuronx-runtime-discovery to Python packages section in all update scripts
+- Created update_to_sdk_2_26_1.sh for the new point release
+- Verified shared component detection: packages that exist in both 2.26.0 and 2.26.1 (like aws-neuronx-runtime-discovery==2.9) won't trigger false mixed installation warnings when anchor package (neuronx-cc) points to 2.26.1
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

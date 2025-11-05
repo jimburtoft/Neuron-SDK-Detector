@@ -289,6 +289,14 @@ class PackageDetector:
                 if len(last_part) >= 6 and any(c.isdigit() for c in last_part):
                     version = '-'.join(parts[:-1])
         return version
+    
+    def get_product_name(self) -> str:
+        """Get the product name from DMI information."""
+        try:
+            with open('/sys/devices/virtual/dmi/id/product_name', 'r') as f:
+                return f.read().strip()
+        except (FileNotFoundError, PermissionError, IOError):
+            return "Unknown"
 
 
 class VersionDatabase:
@@ -497,6 +505,7 @@ class VersionDatabase:
         """Analyze packages using anchor SDK detection."""
         detected_sdks = {}
         unknown_packages = {}
+        package_to_all_sdks = {}  # Track all SDKs each package belongs to
         
         # Find anchor SDK
         anchor_sdk = self._find_anchor_sdk(all_packages)
@@ -515,6 +524,9 @@ class VersionDatabase:
                 
                 if key in self.package_to_sdk_map:
                     matching_sdks = self.package_to_sdk_map[key]
+                    
+                    # Store all matching SDKs for this package
+                    package_to_all_sdks[package_name] = matching_sdks
                     
                     # If we have an anchor SDK and this package exists in the anchor SDK, prefer it
                     if anchor_sdk and anchor_sdk in matching_sdks:
@@ -536,7 +548,8 @@ class VersionDatabase:
         return {
             'detected_sdks': detected_sdks,
             'unknown_packages': unknown_packages,
-            'all_packages': all_packages
+            'all_packages': all_packages,
+            'package_to_all_sdks': package_to_all_sdks
         }
     
     def analyze_venv_individually(self, venv_path: str, packages: Dict[str, str]) -> Dict[str, Any]:
@@ -601,6 +614,7 @@ Examples:
   %(prog)s --version                 # Script-friendly version output (2.25.0)
   %(prog)s --info                    # Show latest SDK info and update instructions
   %(prog)s --info --verbose          # Show all known SDK versions
+  %(prog)s --support                 # Support-friendly output for copy-paste to tickets
   %(prog)s --data-file custom.json   # Use custom version database file
   %(prog)s --debug                   # Show debug information during detection
   %(prog)s --offline                 # Skip network checks, use local database only
@@ -649,6 +663,12 @@ Examples:
         '--offline',
         action='store_true',
         help='Skip network checks and use local database only'
+    )
+    
+    parser.add_argument(
+        '--support',
+        action='store_true',
+        help='Output information in support-friendly format for copy-paste to support tickets'
     )
 
     args = parser.parse_args()
@@ -735,6 +755,10 @@ Examples:
         
         if args.version:
             return print_version_output(analysis, venv_analyses)
+        
+        if args.support:
+            print_support_output(detector, system_packages, current_python_packages)
+            return 0
         
         # Output results
         if args.verbose:
@@ -966,8 +990,19 @@ def print_simple_output(analysis, venv_analyses=None):
                     sdk_date = get_sdk_release_date(sdk_version)
                     print(f"  SDK {sdk_version} ({sdk_date}):")
                     for pkg_name, pkg_version in sorted(packages.items()):
-                        # Add emphasis for out-of-date packages
-                        if sdk_version != latest_sdk:
+                        # Check if this package exists in multiple detected SDKs
+                        package_to_all_sdks = analysis.get('package_to_all_sdks', {})
+                        pkg_all_sdks = package_to_all_sdks.get(pkg_name, [])
+                        
+                        # Get all detected SDK versions for comparison
+                        all_detected_sdks = set(analysis['detected_sdks'].keys())
+                        
+                        # Check if package exists in all detected SDKs
+                        pkg_in_all_detected = all_detected_sdks.issubset(set(pkg_all_sdks))
+                        
+                        # Add emphasis only for packages that don't exist in the latest SDK
+                        # and aren't shared across all detected SDKs
+                        if sdk_version != latest_sdk and not pkg_in_all_detected:
                             print(f"    ⚠️ {pkg_name}: {pkg_version}")
                         else:
                             print(f"    {pkg_name}: {pkg_version}")
@@ -1158,6 +1193,124 @@ def get_package_status(package_name, version, analysis):
             return f"✓ SDK {sdk_version}"
     
     return ""
+
+
+def print_support_output(detector, system_packages, current_python_packages):
+    """Print support-friendly output for copy-paste to support tickets."""
+    print("=" * 80)
+    print("AWS NEURON SUPPORT INFORMATION")
+    print("=" * 80)
+    print()
+    
+    # Get product name
+    product_name = detector.get_product_name()
+    print("## Product Name")
+    print(f"$ cat /sys/devices/virtual/dmi/id/product_name")
+    print(product_name)
+    print()
+    
+    # System packages - detect package manager
+    print("## System Packages")
+    
+    # Try to detect which package manager is in use
+    has_apt = False
+    has_yum = False
+    
+    try:
+        subprocess.run(['apt', '--version'], capture_output=True, check=True)
+        has_apt = True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    
+    try:
+        subprocess.run(['yum', '--version'], capture_output=True, check=True)
+        has_yum = True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    
+    if has_yum:
+        print("$ yum list installed | grep neuron")
+        if system_packages:
+            for package_name in sorted(system_packages.keys()):
+                # Run actual command to get the raw output format
+                try:
+                    result = subprocess.run(
+                        ['yum', 'list', 'installed', package_name],
+                        capture_output=True,
+                        text=True
+                    )
+                    # Parse output to get the line with package info
+                    for line in result.stdout.splitlines():
+                        if package_name in line and not line.startswith('Installed'):
+                            print(line)
+                            break
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    # Fallback to detected version
+                    version = system_packages[package_name]
+                    print(f"{package_name}.x86_64    {version}    @neuron")
+        else:
+            print("(No Neuron packages installed)")
+    elif has_apt:
+        print("$ apt list | grep neuron | grep installed")
+        if system_packages:
+            for package_name in sorted(system_packages.keys()):
+                # Run actual command to get the raw output format
+                try:
+                    result = subprocess.run(
+                        ['apt', 'list', '--installed', package_name],
+                        capture_output=True,
+                        text=True
+                    )
+                    # Get the package info line (skip warning line)
+                    for line in result.stdout.splitlines():
+                        if package_name in line and 'Listing...' not in line:
+                            print(line)
+                            break
+                except (subprocess.CalledProcessError, FileNotFoundError):
+                    # Fallback to detected version
+                    version = system_packages[package_name]
+                    print(f"{package_name}/{version} [installed]")
+        else:
+            print("(No Neuron packages installed)")
+    else:
+        print("(Package manager not detected)")
+    
+    print()
+    
+    # Python packages
+    print("## Python Packages")
+    print("$ pip3 list | grep neuron")
+    if current_python_packages:
+        # Get actual pip output for neuron packages
+        try:
+            result = subprocess.run(
+                ['pip3', 'list'],
+                capture_output=True,
+                text=True
+            )
+            # Filter for neuron packages
+            printed_header = False
+            for line in result.stdout.splitlines():
+                line_lower = line.lower()
+                if 'neuron' in line_lower:
+                    if not printed_header and ('Package' in line or 'package' in line):
+                        # Skip the header line from pip list
+                        continue
+                    if '---' in line:
+                        # Skip the separator line
+                        continue
+                    print(line)
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Fallback to detected packages
+            for package_name, version in sorted(current_python_packages.items()):
+                print(f"{package_name:<40} {version}")
+    else:
+        print("(No Neuron Python packages installed)")
+    
+    print()
+    print("=" * 80)
+    print("END OF SUPPORT INFORMATION")
+    print("=" * 80)
 
 
 if __name__ == '__main__':

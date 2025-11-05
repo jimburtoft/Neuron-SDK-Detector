@@ -12,10 +12,13 @@ The suite provides two main tools:
 ## Recent Changes
 
 **November 5, 2025:**
+- Fixed SDK 2.26.0 database: Added missing neuronx-distributed (0.15.22404) and neuronx-distributed-inference (0.6.10598)
+  - These packages are now correctly listed in SDK 2.26.0 (previously only in 2.26.1)
+  - Total of 16 packages now shared between SDK 2.26.0 and 2.26.1
 - Fixed detection algorithm for shared packages between SDK versions
   - Packages that exist in multiple SDKs (like aws-neuronx-collectives: 2.28.27.0 in both 2.26.0 and 2.26.1) are now tracked correctly
   - Shared packages no longer show ⚠️ warnings in mixed installation scenarios
-  - Only packages unique to older SDKs (like neuronx-cc: 2.21.18209.0 in 2.26.0 but not 2.26.1) show warnings
+  - Only packages unique to older SDKs show warnings (e.g., neuronx-cc: 2.21.18209.0 only in 2.26.0)
   - Algorithm now tracks which SDKs each package belongs to (package_to_all_sdks)
 - Added --support flag to neuron_detector.py for copy-paste friendly output to support tickets
   - Includes product name (from DMI), system packages (apt/yum), and Python packages (pip)

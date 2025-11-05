@@ -505,6 +505,7 @@ class VersionDatabase:
         """Analyze packages using anchor SDK detection."""
         detected_sdks = {}
         unknown_packages = {}
+        package_to_all_sdks = {}  # Track all SDKs each package belongs to
         
         # Find anchor SDK
         anchor_sdk = self._find_anchor_sdk(all_packages)
@@ -523,6 +524,9 @@ class VersionDatabase:
                 
                 if key in self.package_to_sdk_map:
                     matching_sdks = self.package_to_sdk_map[key]
+                    
+                    # Store all matching SDKs for this package
+                    package_to_all_sdks[package_name] = matching_sdks
                     
                     # If we have an anchor SDK and this package exists in the anchor SDK, prefer it
                     if anchor_sdk and anchor_sdk in matching_sdks:
@@ -544,7 +548,8 @@ class VersionDatabase:
         return {
             'detected_sdks': detected_sdks,
             'unknown_packages': unknown_packages,
-            'all_packages': all_packages
+            'all_packages': all_packages,
+            'package_to_all_sdks': package_to_all_sdks
         }
     
     def analyze_venv_individually(self, venv_path: str, packages: Dict[str, str]) -> Dict[str, Any]:
@@ -985,8 +990,19 @@ def print_simple_output(analysis, venv_analyses=None):
                     sdk_date = get_sdk_release_date(sdk_version)
                     print(f"  SDK {sdk_version} ({sdk_date}):")
                     for pkg_name, pkg_version in sorted(packages.items()):
-                        # Add emphasis for out-of-date packages
-                        if sdk_version != latest_sdk:
+                        # Check if this package exists in multiple detected SDKs
+                        package_to_all_sdks = analysis.get('package_to_all_sdks', {})
+                        pkg_all_sdks = package_to_all_sdks.get(pkg_name, [])
+                        
+                        # Get all detected SDK versions for comparison
+                        all_detected_sdks = set(analysis['detected_sdks'].keys())
+                        
+                        # Check if package exists in all detected SDKs
+                        pkg_in_all_detected = all_detected_sdks.issubset(set(pkg_all_sdks))
+                        
+                        # Add emphasis only for packages that don't exist in the latest SDK
+                        # and aren't shared across all detected SDKs
+                        if sdk_version != latest_sdk and not pkg_in_all_detected:
                             print(f"    ⚠️ {pkg_name}: {pkg_version}")
                         else:
                             print(f"    {pkg_name}: {pkg_version}")

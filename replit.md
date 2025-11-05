@@ -11,16 +11,22 @@ The suite provides two main tools:
 
 ## Recent Changes
 
+**November 5, 2025:**
+- Fixed detection algorithm for shared packages between SDK versions
+  - Packages that exist in multiple SDKs (like aws-neuronx-collectives: 2.28.27.0 in both 2.26.0 and 2.26.1) are now tracked correctly
+  - Shared packages no longer show ⚠️ warnings in mixed installation scenarios
+  - Only packages unique to older SDKs (like neuronx-cc: 2.21.18209.0 in 2.26.0 but not 2.26.1) show warnings
+  - Algorithm now tracks which SDKs each package belongs to (package_to_all_sdks)
+- Added --support flag to neuron_detector.py for copy-paste friendly output to support tickets
+  - Includes product name (from DMI), system packages (apt/yum), and Python packages (pip)
+  - Output matches format of commands support teams request
+
 **November 1, 2025:**
 - Added SDK 2.26.1 to version database (39 total SDK versions now)
 - Removed Python update script generator (neuron_update.py) - replaced with pre-built shell scripts
 - Project now provides ready-to-use update shell scripts (update_to_sdk_2_23_0.sh through update_to_sdk_2_26_1.sh)
-- Added --support flag to neuron_detector.py for copy-paste friendly output to support tickets
-  - Includes product name (from DMI), system packages (apt/yum), and Python packages (pip)
-  - Output matches format of commands support teams request
 - Fixed pip upgrade logic in all update scripts - now only upgrades installed packages (doesn't install new ones)
 - Added aws-neuronx-runtime-discovery to Python packages section in all update scripts
-- Verified shared component detection: packages that exist in both 2.26.0 and 2.26.1 (like aws-neuronx-runtime-discovery==2.9) won't trigger false mixed installation warnings when anchor package (neuronx-cc) points to 2.26.1
 
 ## User Preferences
 

@@ -46,13 +46,13 @@ Preferred communication style: Simple, everyday language.
 - Mixed installation detection to identify packages from multiple SDK versions
 
 **Version Database System**
-- JSON-based package version database (`neuron_versions.json`) containing 37+ SDK versions
+- JSON-based package version database (`neuron_versions.json`) containing 42 SDK versions
 - Auto-download mechanism from GitHub when database is not found locally
 - Documentation scraping system using trafilatura for extracting package versions from AWS Neuron documentation
 - Local caching for offline use
 
 **Pre-built Update Scripts**
-- Ready-to-use shell scripts for SDK versions 2.23.0 through 2.26.1
+- Ready-to-use shell scripts for SDK versions 2.23.0 through 2.28.0
 - Only upgrades packages that are already installed (safe updates)
 - Uses apt --only-upgrade for system packages and pip existence checks for Python packages
 - Version wildcard handling for repository version suffixes
